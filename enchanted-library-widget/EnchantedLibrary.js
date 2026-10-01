@@ -4,47 +4,27 @@
 
 // Enchanted Library — a Goodreads bookshelf widget for Scriptable.
 //
-// Draws a dark-wood library bookcase in the spirit of the Beast's library:
-// an arched, gold-trimmed crown, leather-bound spines with gilt lettering,
-// candle-lit glow, and the enchanted rose under its glass bell jar.
+// Paints a candle-lit, dark-wood library bookcase in the spirit of the Beast's
+// library: an arched, gilded crown, leather-bound spines tinted from each
+// book's cover, a brass candlestick, and the enchanted rose under glass.
 //
-//   • "Currently reading" books stand face-out, marked with a red ribbon.
-//   • "Favorites" stand as leather spines with their titles in gold.
+//   • "Currently reading" books stand face-out, marked with a satin ribbon.
+//   • "Favorites" stand as spines with their titles in gold.
 //
 // Works in small, medium and large home-screen widgets.
-// Your Goodreads profile (or at least these shelves) must be public, because
-// the widget reads Goodreads' public RSS feeds (their API is retired).
+// Your Goodreads profile must be public, because the widget reads Goodreads'
+// public shelf RSS feeds (Goodreads no longer offers an API).
 
 const CONFIG = {
   goodreadsUserId: "183463841",
   readingShelf: "currently-reading", // shown face-out with a ribbon bookmark
-  spineShelf: "favorites",           // shown as leather spines
-  libraryName: "My Library",         // engraved on the large widget's crown ("" to hide)
+  spineShelf: "favorites",           // shown as spines
+  libraryName: "My Library",         // script lettering on the large widget ("" to hide)
   fillEmptySpace: true,              // pad shelves with untitled antique volumes
   showRose: true,                    // the enchanted rose under glass
+  showCandle: true,                  // a lit brass candlestick
   refreshHours: 3,
 };
-
-// ---------------------------------------------------------------------------
-// Palette
-
-const WOOD = {
-  wallTop: "#2b150b",
-  wallBottom: "#120703",
-  frame: "#2a1309",
-  frameDark: "#170a04",
-  frameLight: "#5a2f17",
-  plankTop: "#7a4524",
-  plankFront: "#4f2812",
-  plankFrontDark: "#2c1408",
-};
-const GOLD = { base: "#c9a13b", hi: "#f2d47c", lo: "#7d5d1c" };
-const LEATHER = [
-  "#6b1a1f", "#7a2030", "#1f4a35", "#2c5530", "#1d2c4f", "#2b3a6b",
-  "#4a2545", "#8a4b22", "#a0703c", "#5a3520", "#1f4f52", "#8c6d24", "#231c1a",
-];
-const RIBBON = "#a3162d";
-const CANDLE = "#ffbf69";
 
 // ---------------------------------------------------------------------------
 // Entry point
@@ -54,30 +34,35 @@ const CACHE_DIR = FM.joinPath(FM.documentsDirectory(), "enchanted-library");
 if (!FM.fileExists(CACHE_DIR)) FM.createDirectory(CACHE_DIR, true);
 
 const PROFILE_URL = `https://www.goodreads.com/user/show/${CONFIG.goodreadsUserId}`;
+const FONT_CSS = "https://fonts.googleapis.com/css2?family=Cinzel:wght@700"
+  + "&family=Cormorant+Garamond:ital,wght@1,600&family=Pinyon+Script&display=block";
 
 async function main() {
-  let family = config.widgetFamily;
+  let family = config.widgetFamily || "medium";
   if (!config.runsInWidget) {
     family = await choosePreview();
     if (!family) return;
   }
 
   const library = await loadLibrary();
-  const widget = family && family.startsWith("accessory")
+  const widget = family.startsWith("accessory")
     ? buildAccessoryWidget(family, library)
-    : await buildWidget(family || "medium", library);
+    : await buildWidget(family, library);
 
   widget.url = PROFILE_URL;
   widget.refreshAfterDate = new Date(Date.now() + CONFIG.refreshHours * 3600 * 1000);
 
   if (config.runsInWidget) {
     Script.setWidget(widget);
-  } else if (family === "small") {
-    await widget.presentSmall();
-  } else if (family === "large") {
-    await widget.presentLarge();
-  } else {
-    await widget.presentMedium();
+    return;
+  }
+  if (family === "small") await widget.presentSmall();
+  else if (family === "large") await widget.presentLarge();
+  else await widget.presentMedium();
+  // Save renders of the other sizes too; widgets fall back to these if iOS
+  // ever refuses to paint inside the widget itself.
+  for (const other of ["small", "medium", "large"]) {
+    if (other !== family) await buildWidget(other, library);
   }
 }
 
@@ -137,13 +122,14 @@ function parseFeed(xml) {
   return items
     .map(block => {
       const get = name => xmlText(block, name);
+      const small = get("book_small_image_url") || get("book_image_url") || get("book_medium_image_url");
+      const large = get("book_large_image_url") || get("book_medium_image_url") || small;
       return {
         id: get("book_id") || get("guid"),
         title: get("title"),
         author: get("author_name"),
-        cover: bestCoverUrl(
-          get("book_large_image_url") || get("book_medium_image_url") || get("book_image_url")
-        ),
+        cover: bestCoverUrl(large),
+        thumb: /nophoto/i.test(small) ? null : small || null,
         added: Date.parse(get("user_date_added")) || 0,
       };
     })
@@ -173,32 +159,33 @@ function bestCoverUrl(url) {
   return url.replace(/\._[A-Z]{2}\d+_(?=\.\w+$)/, "");
 }
 
-async function loadCover(book) {
-  if (!book.cover) return null;
-  const path = FM.joinPath(CACHE_DIR, `cover-${String(book.id).replace(/\W/g, "")}.img`);
-  if (FM.fileExists(path)) {
-    const img = FM.readImage(path);
-    if (img) return img;
+// Returns the image as a base64 data URL (cached on disk), or null.
+async function imageDataUrl(url, key) {
+  if (!url) return null;
+  const path = FM.joinPath(CACHE_DIR, `${key.replace(/\W/g, "_")}.img`);
+  let data = FM.fileExists(path) ? FM.read(path) : null;
+  if (!data) {
+    try {
+      data = await new Request(url).load();
+      if (data) FM.write(path, data);
+    } catch (e) {
+      return null;
+    }
   }
-  try {
-    const img = await new Request(book.cover).loadImage();
-    FM.writeImage(path, img);
-    return img;
-  } catch (e) {
-    return null;
-  }
+  return data ? `data:image/jpeg;base64,${data.toBase64String()}` : null;
 }
 
 // ---------------------------------------------------------------------------
-// Lock-screen widgets (bonus: just text)
+// Lock-screen widgets (text only)
 
 function buildAccessoryWidget(family, library) {
   const w = new ListWidget();
   const book = library.reading[0] || library.spines[0];
+  const title = book ? book.title.replace(/\s*\([^)]*#[^)]*\)\s*$/, "") : "No books yet";
   if (family === "accessoryRectangular") {
     const head = w.addText(library.reading[0] ? "NOW READING" : "FAVORITE");
     head.font = Font.semiboldSystemFont(10);
-    const t = w.addText(book ? shortTitle(book.title) : "No books yet");
+    const t = w.addText(title);
     t.font = Font.boldSystemFont(14);
     t.lineLimit = 2;
     if (book && book.author) {
@@ -207,7 +194,7 @@ function buildAccessoryWidget(family, library) {
       a.lineLimit = 1;
     }
   } else {
-    const t = w.addText(book ? shortTitle(book.title) : "📚");
+    const t = w.addText(title);
     t.font = Font.semiboldSystemFont(12);
     t.lineLimit = 1;
   }
@@ -224,661 +211,1108 @@ function widgetSize(family) {
   const sw = Math.min(screen.width, screen.height);
   const small = Math.round(sw * 0.405);
   const wide = Math.round(sw * 0.86);
-  if (family === "small") return new Size(small, small);
-  if (family === "large" || family === "extraLarge") return new Size(wide, Math.round(wide * 1.05));
-  return new Size(wide, small);
+  if (family === "small") return { width: small, height: small };
+  if (family === "large" || family === "extraLarge") return { width: wide, height: Math.round(wide * 1.05) };
+  return { width: wide, height: small };
 }
 
-const LAYOUTS = {
-  // unitW: widget width that equals 100% scale; covers: max face-out books.
-  small:  { unitW: 170, shelves: 2, covers: 1, band: 7,  rise: 10, plank: 6,  title: false, plaque: false },
-  medium: { unitW: 364, shelves: 2, covers: 2, band: 6,  rise: 10, plank: 7,  title: false, plaque: false },
-  large:  { unitW: 330, shelves: 3, covers: 3, band: 30, rise: 16, plank: 10, title: true,  plaque: true },
-};
-
 async function buildWidget(family, library) {
+  if (family === "extraLarge") family = "large";
   const size = widgetSize(family);
-  const L = LAYOUTS[family] || (family === "extraLarge" ? LAYOUTS.large : LAYOUTS.medium);
+  const maxCovers = { small: 1, medium: 2, large: 3 }[family] || 2;
 
   const seen = new Set();
   const unique = books => books.filter(b => !seen.has(b.id) && seen.add(b.id));
   const reading = unique(library.reading);
-  const faceOut = reading.slice(0, L.covers);
-  const spines = reading.slice(L.covers).concat(unique(library.spines));
+  const faceOut = reading.slice(0, maxCovers);
+  const spineBooks = reading.slice(maxCovers).concat(unique(library.spines)).slice(0, 40);
 
-  const covers = [];
-  for (const book of faceOut) covers.push({ book, image: await loadCover(book) });
+  const scene = {
+    family,
+    width: size.width,
+    height: size.height,
+    scale: Math.min(3, Device.screenScale()),
+    config: CONFIG,
+    note: noteFor(library, faceOut, spineBooks),
+    covers: [],
+    spines: [],
+  };
+  for (const b of faceOut) {
+    scene.covers.push({ id: b.id, title: b.title, author: b.author, src: await imageDataUrl(b.cover, `cover-${b.id}`) });
+  }
+  for (const b of spineBooks) {
+    scene.spines.push({ id: b.id, title: b.title, author: b.author, src: await imageDataUrl(b.thumb, `thumb-${b.id}`) });
+  }
+
+  const renderPath = FM.joinPath(CACHE_DIR, `render-${family}.png`);
+  let image = null;
+  try {
+    image = await paint(scene);
+    FM.writeImage(renderPath, image);
+  } catch (e) {
+    console.error(`Render failed: ${e}`);
+    if (FM.fileExists(renderPath)) image = FM.readImage(renderPath);
+  }
 
   const w = new ListWidget();
   w.setPadding(0, 0, 0, 0);
-  w.backgroundColor = new Color(WOOD.wallBottom);
-  w.backgroundImage = drawLibrary(size, L, covers, spines, library);
+  w.backgroundColor = new Color("#140804");
+  if (image) {
+    w.backgroundImage = image;
+  } else {
+    const t = w.addText("Open Scriptable and run Enchanted Library once to set up your shelves.");
+    t.textColor = new Color("#f2d47c");
+    t.font = Font.italicSystemFont(12);
+  }
   return w;
 }
 
-function drawLibrary(size, L, covers, spines, library) {
-  const W = size.width, H = size.height;
+function noteFor(library, covers, spines) {
+  if (covers.length || spines.length) return "";
+  if (library.error) return "Couldn’t reach Goodreads.\nIs your profile public?";
+  return `No books on “${CONFIG.readingShelf}”\nor “${CONFIG.spineShelf}” yet.`;
+}
+
+// Paints the scene in a WebView canvas (Scriptable's own drawing API can't do
+// gradients, soft shadows or rotated text) and returns it as an Image.
+async function paint(scene) {
+  const wv = new WebView();
+  await wv.loadHTML(`<!doctype html><html><head>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link rel="stylesheet" href="${FONT_CSS}"></head>
+    <body style="margin:0;background:#000"><canvas id="c"></canvas></body></html>`);
+  const js = `
+    ${renderLibrary.toString()}
+    (async () => {
+      try {
+        const scene = ${JSON.stringify(scene)};
+        const fonts = ["700 20px Cinzel", "italic 600 20px 'Cormorant Garamond'", "20px 'Pinyon Script'"];
+        await Promise.race([
+          Promise.all(fonts.map(f => document.fonts.load(f))),
+          new Promise(r => setTimeout(r, 4000)),
+        ]);
+        const load = src => new Promise(res => {
+          if (!src) return res(null);
+          const img = new Image();
+          img.onload = () => res(img);
+          img.onerror = () => res(null);
+          img.src = src;
+        });
+        for (const b of scene.covers.concat(scene.spines)) b.img = await load(b.src);
+        const canvas = document.getElementById("c");
+        canvas.width = Math.round(scene.width * scene.scale);
+        canvas.height = Math.round(scene.height * scene.scale);
+        renderLibrary(canvas, scene, (w, h) => {
+          const c = document.createElement("canvas");
+          c.width = w; c.height = h;
+          return c;
+        });
+        completion(canvas.toDataURL("image/png").split(",")[1]);
+      } catch (e) {
+        completion("ERR:" + e.message);
+      }
+    })();`;
+  const result = await wv.evaluateJavaScript(js, true);
+  if (!result || result.startsWith("ERR:")) throw new Error(result ? result.slice(4) : "empty render");
+  return Image.fromData(Data.fromBase64String(result));
+}
+
+// ---------------------------------------------------------------------------
+// The painter. Pure Canvas 2D, self-contained so it can run inside the
+// WebView (and in tools/preview.js on a computer).
+// <renderer>
+function renderLibrary(canvas, scene, makeCanvas) {
+  const W = scene.width, H = scene.height, S = scene.scale;
+  const cfg = scene.config;
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(S, 0, 0, S, 0, 0);
+
+  const L = {
+    small:  { unitW: 170, shelves: 1, band: 9,  rise: 13, title: false },
+    medium: { unitW: 364, shelves: 1, band: 8,  rise: 15, title: false },
+    large:  { unitW: 364, shelves: 2, band: 44, rise: 18, title: true },
+  }[scene.family] || { unitW: 364, shelves: 1, band: 8, rise: 15, title: false };
+
   const u = W / L.unitW;
-  const f = Math.round(Math.max(7, Math.min(11, Math.min(W, H) * 0.045)));
-  const band = L.band * u, rise = L.rise * u, plank = L.plank * u;
-  const baseH = f + 2 * u;
-  const top = band + rise;
+  const f = (scene.family === "small" ? 10 : 13) * u;   // pillar width
+  const band = L.band * u, rise = L.rise * u;
+  const baseH = 10 * u, plank = 9 * u;
+  const innerL = f, innerR = W - f, innerW = innerR - innerL;
+  const top = band + rise * 0.55;
   const slotH = (H - baseH - top) / L.shelves;
-  const left = f, right = W - f, iw = right - left;
-  const rng = seeded("library" + W + "x" + H);
 
-  const ctx = new DrawContext();
-  ctx.size = size;
-  ctx.opaque = true;
-  ctx.respectScreenScale = true;
+  const FONT_SPINE = "Cinzel, 'Trajan Pro', Baskerville, serif";
+  const FONT_ITALIC = "'Cormorant Garamond', Baskerville, Georgia, serif";
+  const FONT_SCRIPT = "'Pinyon Script', 'Snell Roundhand', cursive";
 
-  // Back wall: dark paneling lit by candles.
-  vGradient(ctx, new Rect(0, 0, W, H), WOOD.wallTop, WOOD.wallBottom);
-  const panels = Math.max(2, Math.round(iw / (70 * u)));
-  for (let i = 1; i < panels; i++) {
-    const x = left + (iw * i) / panels;
-    ctx.setFillColor(new Color("#000000", 0.35));
-    ctx.fillRect(new Rect(x, 0, 1.2 * u, H));
-    ctx.setFillColor(new Color("#ffffff", 0.04));
-    ctx.fillRect(new Rect(x + 1.2 * u, 0, 0.8 * u, H));
+  // ---- utilities ---------------------------------------------------------
+  function seeded(str) {
+    let h = 1779033703 ^ String(str).length;
+    for (let i = 0; i < String(str).length; i++) {
+      h = Math.imul(h ^ String(str).charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    let a = h >>> 0;
+    return () => {
+      a |= 0; a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
   }
-  grain(ctx, new Rect(left, top, iw, H - top - baseH), rng, u, true, Math.round(iw / (6 * u)), 0.05);
-  glow(ctx, W / 2, top + (H - top) * 0.3, iw * 0.75, (H - top) * 0.8, CANDLE, 0.018, 18);
+  const rng = seeded(scene.family + W + "x" + H);
+  const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const rgba = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+  const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-  // Shelves, top to bottom.
+  function hsl2rgb(h, s, l) {
+    const k = n => (n + h * 12) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const fn = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return [fn(0) * 255, fn(8) * 255, fn(4) * 255];
+  }
+  function rgb2hsl(c) {
+    const [r, g, b] = c.map(v => v / 255);
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2;
+    if (max === min) return [0, 0, l];
+    const d = max - min;
+    const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    let h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return [h / 6, s, l];
+  }
+
+  const LEATHER = ["#6b1a1f", "#7a2030", "#1f4a35", "#2c5530", "#1d2c4f", "#2b3a6b",
+    "#4a2545", "#7a4220", "#8a6232", "#5a3520", "#1f4f52", "#7c6222", "#2a201c"].map(hex);
+
+  // A cover's dominant (saturation-weighted) color, turned into rich leather.
+  function leatherFrom(img, key) {
+    const r = seeded(key);
+    let base = LEATHER[Math.floor(r() * LEATHER.length)];
+    if (img) {
+      try {
+        const c = makeCanvas(12, 18);
+        const x = c.getContext("2d");
+        x.drawImage(img, 0, 0, 12, 18);
+        const d = x.getImageData(0, 0, 12, 18).data;
+        let tr = 0, tg = 0, tb = 0, tw = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          const [, s, l] = rgb2hsl([d[i], d[i + 1], d[i + 2]]);
+          const wgt = 0.05 + s * (1 - Math.abs(l - 0.5) * 1.6);
+          tr += d[i] * wgt; tg += d[i + 1] * wgt; tb += d[i + 2] * wgt; tw += wgt;
+        }
+        const [h, s] = rgb2hsl([tr / tw, tg / tw, tb / tw]);
+        if (s > 0.12) base = hsl2rgb(h, clamp(s * 0.85, 0.3, 0.62), 0.2 + r() * 0.12);
+      } catch (e) { /* keep palette color */ }
+    }
+    return base;
+  }
+
+  function roundRect(x, y, w, h, r) {
+    const [tl, tr, br, bl] = Array.isArray(r) ? r : [r, r, r, r];
+    ctx.beginPath();
+    ctx.moveTo(x + tl, y);
+    ctx.lineTo(x + w - tr, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + tr);
+    ctx.lineTo(x + w, y + h - br);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+    ctx.lineTo(x + bl, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - bl);
+    ctx.lineTo(x, y + tl);
+    ctx.quadraticCurveTo(x, y, x + tl, y);
+    ctx.closePath();
+  }
+
+  function gold(x0, y0, x1, y1, a = 1) {
+    const g = ctx.createLinearGradient(x0, y0, x1, y1);
+    [[0, "#6e4a12"], [0.22, "#d9ae52"], [0.42, "#fff0b5"], [0.58, "#c8952f"], [0.82, "#f0cf78"], [1, "#7a5418"]]
+      .forEach(([o, c]) => g.addColorStop(o, a === 1 ? c : rgba(hex(c), a)));
+    return g;
+  }
+
+  const noise = (() => {
+    const n = 96;
+    const c = makeCanvas(n, n);
+    const x = c.getContext("2d");
+    const img = x.createImageData(n, n);
+    const r = seeded("noise");
+    for (let i = 0; i < img.data.length; i += 4) {
+      const v = r() * 255;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+      img.data[i + 3] = 255;
+    }
+    x.putImageData(img, 0, 0);
+    return ctx.createPattern(c, "repeat");
+  })();
+
+  function texture(alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.globalCompositeOperation = "overlay";
+    ctx.fillStyle = noise;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function grain(x, y, w, h, vertical, count, alpha) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+    for (let i = 0; i < count; i++) {
+      const amp = (0.5 + rng() * 2) * u;
+      ctx.beginPath();
+      if (vertical) {
+        let px = x + rng() * w;
+        ctx.moveTo(px, y);
+        for (let yy = y; yy < y + h; yy += 18 * u) {
+          ctx.quadraticCurveTo(px + (rng() - 0.5) * amp * 2, yy + 9 * u, px + (rng() - 0.5) * amp, yy + 18 * u);
+        }
+      } else {
+        const py = y + rng() * h;
+        ctx.moveTo(x, py);
+        for (let xx = x; xx < x + w; xx += 24 * u) {
+          ctx.quadraticCurveTo(xx + 12 * u, py + (rng() - 0.5) * amp * 2, xx + 24 * u, py + (rng() - 0.5) * amp);
+        }
+      }
+      ctx.strokeStyle = rng() < 0.6 ? `rgba(0,0,0,${alpha})` : `rgba(255,190,130,${alpha * 0.6})`;
+      ctx.lineWidth = (0.3 + rng() * 0.8) * u;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function glow(x, y, r, color, a, mode = "screen") {
+    ctx.save();
+    ctx.globalCompositeOperation = mode;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, rgba(color, a));
+    g.addColorStop(0.4, rgba(color, a * 0.45));
+    g.addColorStop(1, rgba(color, 0));
+    ctx.fillStyle = g;
+    ctx.fillRect(x - r, y - r, 2 * r, 2 * r);
+    ctx.restore();
+  }
+
+  function sparkle(x, y, r, color) {
+    ctx.save();
+    ctx.shadowColor = rgba(color, 0.9);
+    ctx.shadowBlur = r * 3;
+    ctx.fillStyle = rgba(mix(color, [255, 255, 255], 0.6), 0.95);
+    ctx.beginPath();
+    ctx.moveTo(x, y - r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.quadraticCurveTo(x, y, x, y + r);
+    ctx.quadraticCurveTo(x, y, x - r, y);
+    ctx.quadraticCurveTo(x, y, x, y - r);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function shortTitle(t) {
+    return t.replace(/\s*\([^)]*#[^)]*\)\s*$/, "").split(/:\s/)[0].trim();
+  }
+
+  // ---- back wall ---------------------------------------------------------
+  function backWall() {
+    const g = ctx.createRadialGradient(W / 2, top, 0, W / 2, top + H * 0.2, Math.max(W, H) * 0.95);
+    g.addColorStop(0, "#5c3519");
+    g.addColorStop(0.45, "#2e170a");
+    g.addColorStop(1, "#110603");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    const boards = Math.max(3, Math.round(innerW / (48 * u)));
+    for (let i = 1; i < boards; i++) {
+      const x = innerL + (innerW * i) / boards;
+      ctx.fillStyle = "rgba(0,0,0,0.45)";
+      ctx.fillRect(x - 0.6 * u, 0, 1.2 * u, H);
+      ctx.fillStyle = "rgba(255,200,150,0.05)";
+      ctx.fillRect(x + 0.6 * u, 0, 1 * u, H);
+    }
+    grain(innerL, 0, innerW, H, true, Math.round(innerW / (4 * u)), 0.08);
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    texture(0.08);
+
+    // Soft shafts of light from a high window.
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    for (const [x0, w0, a] of [[0.12, 0.1, 0.07], [0.3, 0.07, 0.05], [0.44, 0.12, 0.05]]) {
+      const g2 = ctx.createLinearGradient(0, 0, W * 0.4, H);
+      g2.addColorStop(0, `rgba(255,214,160,${a})`);
+      g2.addColorStop(1, "rgba(255,214,160,0)");
+      ctx.fillStyle = g2;
+      ctx.beginPath();
+      ctx.moveTo(W * x0, 0);
+      ctx.lineTo(W * (x0 + w0), 0);
+      ctx.lineTo(W * (x0 + w0 + 0.35), H);
+      ctx.lineTo(W * (x0 + 0.3), H);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // ---- books -------------------------------------------------------------
+  function spine(x, baseY, w, h, color, title, key, muted) {
+    const r = seeded(key);
+    const y = baseY - h;
+    const radius = [1.6 * u, 1.6 * u, 0.4 * u, 0.4 * u];
+
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.6)";
+    ctx.shadowBlur = 6 * u;
+    ctx.shadowOffsetX = 2.5 * u;
+    ctx.fillStyle = rgba(color);
+    roundRect(x, y, w, h, radius);
+    ctx.fill();
+    ctx.restore();
+
+    // Rounded-spine shading.
+    roundRect(x, y, w, h, radius);
+    const g = ctx.createLinearGradient(x, 0, x + w, 0);
+    g.addColorStop(0, "rgba(0,0,0,0.6)");
+    g.addColorStop(0.1, "rgba(0,0,0,0.12)");
+    g.addColorStop(0.28, "rgba(255,235,210,0.2)");
+    g.addColorStop(0.45, "rgba(255,235,210,0.05)");
+    g.addColorStop(0.75, "rgba(0,0,0,0.15)");
+    g.addColorStop(1, "rgba(0,0,0,0.65)");
+    ctx.fillStyle = g;
+    ctx.fill();
+    texture(0.22);
+    const tg = ctx.createLinearGradient(0, y, 0, y + 10 * u);
+    tg.addColorStop(0, "rgba(0,0,0,0.35)");
+    tg.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = tg;
+    ctx.fillRect(x, y, w, 10 * u);
+
+    const style = Math.floor(r() * 3);
+    const bandAlpha = muted ? 0.55 : 1;
+
+    // Raised ribs with gilt lines.
+    const ribs = style === 1 ? [0.07, 0.15, 0.85, 0.93] : [0.08, 0.92];
+    for (const t of ribs) {
+      const ry = y + h * t;
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.fillRect(x + 0.5 * u, ry + 1.6 * u, w - u, 0.8 * u);
+      ctx.fillStyle = "rgba(255,240,220,0.12)";
+      ctx.fillRect(x + 0.5 * u, ry - 1.4 * u, w - u, 0.6 * u);
+      ctx.fillStyle = gold(x, ry, x + w, ry, bandAlpha);
+      ctx.fillRect(x + 0.6 * u, ry - 0.6 * u, w - 1.2 * u, 0.7 * u);
+      ctx.fillRect(x + 0.6 * u, ry + 0.8 * u, w - 1.2 * u, 0.4 * u);
+    }
+    if (muted || !title) {
+      if (r() < 0.5) {
+        ctx.fillStyle = gold(x, 0, x + w, 0, 0.5);
+        ctx.beginPath();
+        ctx.arc(x + w / 2, y + h * 0.5, Math.min(w * 0.18, 2.2 * u), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      return;
+    }
+
+    const t0 = y + h * (style === 1 ? 0.19 : 0.13), t1 = y + h * (style === 1 ? 0.81 : 0.87);
+
+    // Title label panel on some volumes.
+    if (style === 2) {
+      const lx = x + 1.4 * u, lw = w - 2.8 * u;
+      ctx.fillStyle = rgba(mix(color, [10, 4, 2], 0.62));
+      ctx.fillRect(lx, t0, lw, t1 - t0);
+      ctx.strokeStyle = gold(lx, 0, lx + lw, 0);
+      ctx.lineWidth = 0.6 * u;
+      ctx.strokeRect(lx + 0.8 * u, t0 + 0.8 * u, lw - 1.6 * u, t1 - t0 - 1.6 * u);
+    }
+
+    // Gilt title, running down the spine.
+    const room = (t1 - t0) - 6 * u;
+    let text = shortTitle(title);
+    let fs = Math.min(w * 0.44, 10.5 * u);
+    ctx.font = `700 ${fs}px ${FONT_SPINE}`;
+    while (ctx.measureText(text).width > room && fs > 6 * u) {
+      fs -= 0.25 * u;
+      ctx.font = `700 ${fs}px ${FONT_SPINE}`;
+    }
+    if (ctx.measureText(text).width > room) {
+      const words = text.split(" ");
+      while (words.length > 1 && ctx.measureText(words.join(" ") + "…").width > room) words.pop();
+      text = words.join(" ");
+      while (text.length > 1 && ctx.measureText(text + "…").width > room) text = text.slice(0, -1);
+      text += "…";
+    }
+    ctx.save();
+    ctx.translate(x + w / 2 + fs * 0.04, (t0 + t1) / 2);
+    ctx.rotate(Math.PI / 2);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = "rgba(0,0,0,0.75)";
+    ctx.shadowBlur = 1.2 * u;
+    ctx.shadowOffsetY = -0.6 * u;
+    ctx.fillStyle = gold(0, -fs / 2, 0, fs / 2);
+    ctx.fillText(text, 0, 0);
+    ctx.restore();
+  }
+
+  function cover(x, baseY, w, h, book) {
+    const y = baseY - h;
+    const radius = [0.6 * u, 1.8 * u, 1.8 * u, 0.6 * u];
+
+    // Page block peeking out on the right.
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.7)";
+    ctx.shadowBlur = 10 * u;
+    ctx.shadowOffsetX = 4 * u;
+    ctx.shadowOffsetY = 1 * u;
+    ctx.fillStyle = "#e9dcc0";
+    roundRect(x + 1.5 * u, y + 1.5 * u, w, h - 1.5 * u, radius);
+    ctx.fill();
+    ctx.restore();
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = `rgba(120,95,60,${0.25 - i * 0.04})`;
+      ctx.fillRect(x + w + 0.2 * u + i * 0.35 * u, y + 2 * u, 0.2 * u, h - 3 * u);
+    }
+
+    ctx.save();
+    roundRect(x, y, w, h, radius);
+    ctx.clip();
+    if (book.img) {
+      const ir = book.img.width / book.img.height;
+      let sw = book.img.width, sh = book.img.height, sx = 0, sy = 0;
+      if (ir > w / h) { sw = sh * (w / h); sx = (book.img.width - sw) / 2; }
+      else { sh = sw / (w / h); sy = (book.img.height - sh) / 2; }
+      ctx.drawImage(book.img, sx, sy, sw, sh, x, y, w, h);
+    } else {
+      const c = leatherFrom(null, book.id + "cover");
+      ctx.fillStyle = rgba(c);
+      ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = noise;
+      ctx.globalAlpha = 0.12;
+      ctx.fillRect(x, y, w, h);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = gold(x, y, x + w, y + h);
+      ctx.lineWidth = 0.9 * u;
+      ctx.strokeRect(x + 4 * u, y + 4 * u, w - 8 * u, h - 8 * u);
+      ctx.fillStyle = gold(x, y, x + w, y + h);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const words = shortTitle(book.title).split(" ");
+      const fs = Math.max(6 * u, w * 0.12);
+      ctx.font = `700 ${fs}px ${FONT_SPINE}`;
+      const lines = [];
+      for (const word of words) {
+        const last = lines[lines.length - 1];
+        if (last && ctx.measureText(last + " " + word).width < w - 14 * u) lines[lines.length - 1] = last + " " + word;
+        else lines.push(word);
+      }
+      lines.slice(0, 5).forEach((ln, i, arr) => ctx.fillText(ln, x + w / 2, y + h * 0.45 + (i - (arr.length - 1) / 2) * fs * 1.25));
+    }
+    // Hinge, gloss and edge.
+    const hg = ctx.createLinearGradient(x, 0, x + w * 0.12, 0);
+    hg.addColorStop(0, "rgba(0,0,0,0.45)");
+    hg.addColorStop(0.55, "rgba(255,255,255,0.18)");
+    hg.addColorStop(0.7, "rgba(0,0,0,0.12)");
+    hg.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = hg;
+    ctx.fillRect(x, y, w * 0.12, h);
+    const gl = ctx.createLinearGradient(x, y, x + w, y + h);
+    gl.addColorStop(0, "rgba(255,250,235,0.22)");
+    gl.addColorStop(0.35, "rgba(255,250,235,0.04)");
+    gl.addColorStop(0.36, "rgba(255,250,235,0)");
+    gl.addColorStop(1, "rgba(0,0,0,0.25)");
+    ctx.fillStyle = gl;
+    ctx.fillRect(x, y, w, h);
+    ctx.restore();
+    roundRect(x, y, w, h, radius);
+    ctx.strokeStyle = "rgba(0,0,0,0.6)";
+    ctx.lineWidth = 0.6 * u;
+    ctx.stroke();
+  }
+
+  function ribbon(x, yTop, yEnd) {
+    const w = 4.2 * u;
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.5)";
+    ctx.shadowBlur = 3 * u;
+    ctx.shadowOffsetX = 1.5 * u;
+    ctx.beginPath();
+    ctx.moveTo(x, yTop);
+    ctx.lineTo(x + w, yTop);
+    ctx.bezierCurveTo(x + w + 0.6 * u, yTop + (yEnd - yTop) * 0.5, x + w - 0.6 * u, yEnd - 4 * u, x + w + 0.4 * u, yEnd);
+    ctx.lineTo(x + w / 2 + 0.2 * u, yEnd - 2.6 * u);
+    ctx.lineTo(x + 0.2 * u, yEnd);
+    ctx.bezierCurveTo(x - 0.4 * u, yEnd - 4 * u, x + 0.6 * u, yTop + (yEnd - yTop) * 0.5, x, yTop);
+    const g = ctx.createLinearGradient(x, 0, x + w, 0);
+    g.addColorStop(0, "#5e0815");
+    g.addColorStop(0.35, "#d8314d");
+    g.addColorStop(0.55, "#a3162d");
+    g.addColorStop(1, "#4a0610");
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function flatStack(x, baseY, w, key) {
+    const r = seeded(key);
+    let y = baseY;
+    const n = 2 + Math.floor(r() * 2);
+    for (let i = 0; i < n; i++) {
+      const t = (6.5 + r() * 3.5) * u;
+      const bw = w - r() * 7 * u;
+      const bx = x + r() * (w - bw);
+      y -= t;
+      const c = mix(LEATHER[Math.floor(r() * LEATHER.length)], [20, 8, 4], 0.25);
+      ctx.save();
+      ctx.shadowColor = "rgba(0,0,0,0.55)";
+      ctx.shadowBlur = 4 * u;
+      ctx.shadowOffsetX = 2 * u;
+      ctx.fillStyle = rgba(c);
+      roundRect(bx, y, bw, t, 1.2 * u);
+      ctx.fill();
+      ctx.restore();
+      roundRect(bx, y, bw, t, 1.2 * u);
+      const g = ctx.createLinearGradient(0, y, 0, y + t);
+      g.addColorStop(0, "rgba(255,235,210,0.22)");
+      g.addColorStop(0.4, "rgba(255,235,210,0.02)");
+      g.addColorStop(1, "rgba(0,0,0,0.55)");
+      ctx.fillStyle = g;
+      ctx.fill();
+      texture(0.2);
+      ctx.fillStyle = gold(bx, y, bx, y + t);
+      for (const fx of [0.07, 0.12, 0.88, 0.93]) ctx.fillRect(bx + bw * fx, y + 0.8 * u, 0.7 * u, t - 1.6 * u);
+      ctx.fillRect(bx + bw * 0.3, y + t / 2 - 0.3 * u, bw * 0.4, 0.6 * u);
+    }
+    return baseY - y;
+  }
+
+  // ---- decor -------------------------------------------------------------
+  function candle(cx, baseY, h) {
+    const brass = (x0, x1) => {
+      const g = ctx.createLinearGradient(x0, 0, x1, 0);
+      g.addColorStop(0, "#5a3d10");
+      g.addColorStop(0.35, "#f3d17c");
+      g.addColorStop(0.55, "#b88a2e");
+      g.addColorStop(1, "#4a300c");
+      return g;
+    };
+    const dish = 8 * u, stemW = 2.2 * u;
+    const candleH = h * 0.42, candleW = 5.2 * u;
+    const stemTop = baseY - h * 0.5;
+
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.6)";
+    ctx.shadowBlur = 5 * u;
+    ctx.shadowOffsetX = 2 * u;
+    ctx.fillStyle = brass(cx - dish, cx + dish);
+    ctx.beginPath();
+    ctx.ellipse(cx, baseY - 1.6 * u, dish, 2 * u, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = brass(cx - dish * 0.6, cx + dish * 0.6);
+    ctx.beginPath();
+    ctx.moveTo(cx - dish * 0.55, baseY - 2 * u);
+    ctx.quadraticCurveTo(cx - stemW, baseY - 6 * u, cx - stemW / 2, baseY - 9 * u);
+    ctx.lineTo(cx - stemW / 2, stemTop + 4 * u);
+    ctx.lineTo(cx + stemW / 2, stemTop + 4 * u);
+    ctx.lineTo(cx + stemW / 2, baseY - 9 * u);
+    ctx.quadraticCurveTo(cx + stemW, baseY - 6 * u, cx + dish * 0.55, baseY - 2 * u);
+    ctx.closePath();
+    ctx.fill();
+    for (const ky of [0.35, 0.7]) {
+      ctx.fillStyle = brass(cx - 2.6 * u, cx + 2.6 * u);
+      ctx.beginPath();
+      ctx.ellipse(cx, baseY - 9 * u - (baseY - 9 * u - stemTop) * ky, 2.4 * u, 1.6 * u, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = brass(cx - 6 * u, cx + 6 * u);
+    ctx.beginPath();
+    ctx.moveTo(cx - 6 * u, stemTop);
+    ctx.quadraticCurveTo(cx, stemTop + 7 * u, cx + 6 * u, stemTop);
+    ctx.closePath();
+    ctx.fill();
+
+    // Wax candle with drips.
+    const cy = stemTop - candleH;
+    const wax = ctx.createLinearGradient(cx - candleW / 2, 0, cx + candleW / 2, 0);
+    wax.addColorStop(0, "#b9a27c");
+    wax.addColorStop(0.4, "#fff4dc");
+    wax.addColorStop(1, "#a88f68");
+    ctx.fillStyle = wax;
+    roundRect(cx - candleW / 2, cy, candleW, candleH, [1.2 * u, 1.2 * u, 0, 0]);
+    ctx.fill();
+    ctx.fillStyle = "#f6ead0";
+    ctx.beginPath();
+    ctx.ellipse(cx - candleW * 0.25, cy + candleH * 0.22, 0.9 * u, candleH * 0.16, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#2a1a0a";
+    ctx.lineWidth = 0.5 * u;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + 0.2 * u, cy - 1.6 * u);
+    ctx.stroke();
+
+    // Flame and its light.
+    const fy = cy - 1.6 * u;
+    glow(cx, fy - 3 * u, 70 * u, [255, 170, 80], 0.32);
+    glow(cx, fy - 3 * u, 16 * u, [255, 200, 120], 0.6);
+    const fl = ctx.createRadialGradient(cx, fy - 1.6 * u, 0.2 * u, cx, fy - 2.5 * u, 5 * u);
+    fl.addColorStop(0, "#ffffff");
+    fl.addColorStop(0.3, "#fff1a8");
+    fl.addColorStop(0.7, "#ffa632");
+    fl.addColorStop(1, "rgba(255,90,20,0)");
+    ctx.fillStyle = fl;
+    ctx.beginPath();
+    ctx.moveTo(cx, fy - 8 * u);
+    ctx.bezierCurveTo(cx + 1.4 * u, fy - 4.5 * u, cx + 2.6 * u, fy - 1 * u, cx, fy + 0.4 * u);
+    ctx.bezierCurveTo(cx - 2.6 * u, fy - 1 * u, cx - 1.4 * u, fy - 4.5 * u, cx, fy - 8 * u);
+    ctx.fill();
+  }
+
+  function rose(cx, baseY, jarH) {
+    const jw = jarH * 0.46, padH = 5 * u;
+    const yb = baseY - padH, yt = yb - jarH, r = jw / 2;
+    const x0 = cx - r, x1 = cx + r;
+    const bloomY = yt + jarH * 0.36, br = jw * 0.2;
+
+    glow(cx, bloomY + jarH * 0.08, jarH * 1.05, [255, 70, 110], 0.28);
+
+    // Pedestal.
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.6)";
+    ctx.shadowBlur = 5 * u;
+    ctx.shadowOffsetX = 2 * u;
+    const pw = jw + 7 * u;
+    const pg = ctx.createLinearGradient(cx - pw / 2, 0, cx + pw / 2, 0);
+    pg.addColorStop(0, "#1c0c05");
+    pg.addColorStop(0.4, "#5a2f15");
+    pg.addColorStop(1, "#160903");
+    ctx.fillStyle = pg;
+    roundRect(cx - pw / 2, baseY - padH, pw, padH, [1.5 * u, 1.5 * u, 1 * u, 1 * u]);
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = gold(cx - pw / 2, 0, cx + pw / 2, 0);
+    ctx.fillRect(cx - pw / 2 + 0.6 * u, baseY - padH + 0.4 * u, pw - 1.2 * u, 0.8 * u);
+    ctx.fillRect(cx - pw / 2 + 0.6 * u, baseY - 1.4 * u, pw - 1.2 * u, 0.5 * u);
+
+    // Stem and leaves.
+    ctx.strokeStyle = "#3f6e2f";
+    ctx.lineWidth = 1.2 * u;
+    ctx.beginPath();
+    ctx.moveTo(cx, bloomY + br * 0.6);
+    ctx.bezierCurveTo(cx - 3 * u, bloomY + jarH * 0.25, cx + 3 * u, yb - jarH * 0.2, cx + 0.5 * u, yb - 0.5 * u);
+    ctx.stroke();
+    const leaf = (lx, ly, dir, s) => {
+      const lg = ctx.createLinearGradient(lx, ly, lx + dir * 7 * s, ly - 4 * s);
+      lg.addColorStop(0, "#26501f");
+      lg.addColorStop(1, "#5f9a45");
+      ctx.fillStyle = lg;
+      ctx.beginPath();
+      ctx.moveTo(lx, ly);
+      ctx.quadraticCurveTo(lx + dir * 3 * s, ly - 6 * s, lx + dir * 8 * s, ly - 4 * s);
+      ctx.quadraticCurveTo(lx + dir * 4 * s, ly + 1.5 * s, lx, ly);
+      ctx.fill();
+    };
+    leaf(cx - 1 * u, bloomY + jarH * 0.3, -1, u * jarH / 52);
+    leaf(cx + 1 * u, bloomY + jarH * 0.44, 1, u * jarH / 52);
+
+    // Bloom: layered petals.
+    ctx.save();
+    ctx.shadowColor = "rgba(255,40,80,0.9)";
+    ctx.shadowBlur = 8 * u;
+    const petal = (ang, dist, pr, c0, c1) => {
+      const px = cx + Math.cos(ang) * dist, py = bloomY + Math.sin(ang) * dist * 0.75;
+      const pg2 = ctx.createRadialGradient(px - pr * 0.3, py - pr * 0.4, pr * 0.1, px, py, pr);
+      pg2.addColorStop(0, c0);
+      pg2.addColorStop(1, c1);
+      ctx.fillStyle = pg2;
+      ctx.beginPath();
+      ctx.ellipse(px, py, pr, pr * 0.82, ang * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    for (let i = 0; i < 6; i++) petal(Math.PI * (0.15 + i / 3), br * 0.62, br * 0.62, "#e0304f", "#7d0820");
+    ctx.shadowBlur = 0;
+    for (let i = 0; i < 4; i++) petal(Math.PI * (0.4 + i / 2), br * 0.32, br * 0.5, "#ff5a73", "#a3102c");
+    petal(0, 0, br * 0.4, "#ff7a8e", "#b4142f");
+    ctx.restore();
+    ctx.strokeStyle = "rgba(90,0,20,0.8)";
+    ctx.lineWidth = 0.5 * u;
+    ctx.beginPath();
+    ctx.arc(cx, bloomY, br * 0.22, Math.PI * 0.1, Math.PI * 1.6);
+    ctx.stroke();
+
+    // Fallen petals.
+    for (const [dx, a] of [[0.35, 0.2], [-0.42, -0.3]]) {
+      ctx.fillStyle = "#b3172f";
+      ctx.beginPath();
+      ctx.ellipse(cx + jw * dx, yb - 1 * u, 2 * u, 0.9 * u, a, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Glass dome.
+    const k = 0.5523;
+    const domePath = () => {
+      ctx.beginPath();
+      ctx.moveTo(x0, yb);
+      ctx.lineTo(x0, yt + r);
+      ctx.bezierCurveTo(x0, yt + r - k * r, cx - k * r, yt, cx, yt);
+      ctx.bezierCurveTo(cx + k * r, yt, x1, yt + r - k * r, x1, yt + r);
+      ctx.lineTo(x1, yb);
+      ctx.closePath();
+    };
+    domePath();
+    const glass = ctx.createLinearGradient(x0, 0, x1, 0);
+    glass.addColorStop(0, "rgba(255,240,230,0.26)");
+    glass.addColorStop(0.18, "rgba(255,240,230,0.05)");
+    glass.addColorStop(0.75, "rgba(255,240,230,0.03)");
+    glass.addColorStop(1, "rgba(255,240,230,0.2)");
+    ctx.fillStyle = glass;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,238,225,0.55)";
+    ctx.lineWidth = 0.7 * u;
+    ctx.stroke();
+    ctx.save();
+    ctx.shadowColor = "rgba(255,255,255,0.8)";
+    ctx.shadowBlur = 3 * u;
+    ctx.strokeStyle = "rgba(255,255,255,0.65)";
+    ctx.lineWidth = 1.2 * u;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(x0 + jw * 0.14, yb - jarH * 0.15);
+    ctx.lineTo(x0 + jw * 0.14, yt + r * 1.05);
+    ctx.quadraticCurveTo(x0 + jw * 0.17, yt + r * 0.35, cx - r * 0.2, yt + r * 0.18);
+    ctx.stroke();
+    ctx.lineWidth = 0.7 * u;
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(x1 - jw * 0.12, yt + r * 1.2);
+    ctx.lineTo(x1 - jw * 0.12, yb - jarH * 0.3);
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = gold(cx - 2 * u, 0, cx + 2 * u, 0);
+    ctx.beginPath();
+    ctx.ellipse(cx, yt - 1.2 * u, 1.8 * u, 1.6 * u, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    const sr = seeded("sparkles");
+    for (let i = 0; i < 9; i++) {
+      const sx = x0 + jw * 0.15 + sr() * jw * 0.7;
+      const sy = yt + jarH * 0.12 + sr() * jarH * 0.75;
+      sparkle(sx, sy, (0.7 + sr() * 1.1) * u, i % 2 ? [255, 160, 190] : [255, 214, 120]);
+    }
+  }
+
+  // ---- frame -------------------------------------------------------------
+  function rosette(x, y, r) {
+    const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r * 1.3);
+    g.addColorStop(0, "#fff0b5");
+    g.addColorStop(0.5, "#d4a640");
+    g.addColorStop(1, "#5e3f0e");
+    ctx.fillStyle = g;
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.ellipse(x + Math.cos(a) * r * 0.6, y + Math.sin(a) * r * 0.6, r * 0.5, r * 0.32, a, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.42, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function scroll(x, y, dir, len) {
+    // A gilded flourish: a line ending in a curl.
+    ctx.save();
+    ctx.strokeStyle = gold(x, y - 4 * u, x + dir * len, y + 4 * u);
+    ctx.lineWidth = 1 * u;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.bezierCurveTo(x + dir * len * 0.3, y - 3 * u, x + dir * len * 0.6, y + 3 * u, x + dir * len * 0.85, y);
+    ctx.bezierCurveTo(x + dir * len * 0.95, y - 2 * u, x + dir * len, y - 5 * u, x + dir * (len - 4 * u), y - 5 * u);
+    ctx.bezierCurveTo(x + dir * (len - 7 * u), y - 5 * u, x + dir * (len - 7 * u), y - 1.5 * u, x + dir * (len - 4.5 * u), y - 1.8 * u);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function frame() {
+    const archY = band + rise;
+    const cx = W / 2;
+    const k = 0.5523;
+
+    // Shadows the frame casts into the case.
+    for (const [x0, x1] of [[innerL, innerL + 14 * u], [innerR, innerR - 14 * u]]) {
+      const g = ctx.createLinearGradient(x0, 0, x1, 0);
+      g.addColorStop(0, "rgba(0,0,0,0.6)");
+      g.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(Math.min(x0, x1), 0, 14 * u, H);
+    }
+
+    // Pillars, turned like columns.
+    for (const x of [0, W - f]) {
+      const g = ctx.createLinearGradient(x, 0, x + f, 0);
+      g.addColorStop(0, "#120602");
+      g.addColorStop(0.3, "#4d2812");
+      g.addColorStop(0.5, "#3a1d0c");
+      g.addColorStop(0.8, "#24110a");
+      g.addColorStop(1, "#0d0401");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.rect(x, 0, f, H);
+      ctx.fill();
+      texture(0.18);
+      grain(x, 0, f, H, true, 5, 0.18);
+      for (const fx of [0.32, 0.68]) {
+        ctx.fillStyle = gold(x + f * fx - u, 0, x + f * fx + u, 0, 0.85);
+        ctx.fillRect(x + f * fx - 0.45 * u, archY + 6 * u, 0.9 * u, H - archY - baseH - 12 * u);
+      }
+    }
+
+    // Crown with an arched opening.
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(W, 0);
+    ctx.lineTo(W, archY);
+    ctx.lineTo(innerR, archY);
+    ctx.bezierCurveTo(innerR, archY - k * rise, cx + k * (cx - innerL), band, cx, band);
+    ctx.bezierCurveTo(cx - k * (cx - innerL), band, innerL, archY - k * rise, innerL, archY);
+    ctx.lineTo(0, archY);
+    ctx.closePath();
+    const cg = ctx.createLinearGradient(0, 0, 0, archY);
+    cg.addColorStop(0, "#1b0b04");
+    cg.addColorStop(0.5, "#3b1d0c");
+    cg.addColorStop(1, "#24110a");
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.7)";
+    ctx.shadowBlur = 8 * u;
+    ctx.shadowOffsetY = 3 * u;
+    ctx.fillStyle = cg;
+    ctx.fill();
+    ctx.restore();
+    texture(0.18);
+
+    // Gilded molding following the arch.
+    const arch = off => {
+      ctx.beginPath();
+      ctx.moveTo(innerR - off, archY + 1 * u);
+      ctx.lineTo(innerR - off, archY);
+      ctx.bezierCurveTo(innerR - off, archY - k * (rise - off), cx + k * (cx - innerL - off), band + off, cx, band + off);
+      ctx.bezierCurveTo(cx - k * (cx - innerL - off), band + off, innerL + off, archY - k * (rise - off), innerL + off, archY);
+      ctx.lineTo(innerL + off, archY + 1 * u);
+    };
+    arch(0.8 * u);
+    ctx.strokeStyle = gold(0, band, 0, archY + 2 * u);
+    ctx.lineWidth = 1.6 * u;
+    ctx.stroke();
+    arch(3.6 * u);
+    ctx.strokeStyle = gold(0, band, 0, archY, 0.55);
+    ctx.lineWidth = 0.6 * u;
+    ctx.stroke();
+
+    // Cornice along the very top, with a bead row.
+    const cornice = ctx.createLinearGradient(0, 0, 0, 5 * u);
+    cornice.addColorStop(0, "#0c0401");
+    cornice.addColorStop(1, "#2c150a");
+    ctx.fillStyle = cornice;
+    ctx.fillRect(0, 0, W, 4 * u);
+    ctx.fillStyle = gold(0, 4 * u, 0, 6 * u);
+    ctx.fillRect(0, 4 * u, W, 1 * u);
+    if (L.title) {
+      for (let bx = f + 3 * u; bx < W - f; bx += 6 * u) {
+        ctx.fillStyle = gold(bx - u, 7 * u, bx + u, 9 * u, 0.8);
+        ctx.beginPath();
+        ctx.ellipse(bx, 8 * u, 1.1 * u, 1.4 * u, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Keystone and spandrel ornaments.
+    rosette(cx, band + 1 * u, 3.2 * u);
+    if (rise >= 14 * u) {
+      rosette(innerL + rise * 0.75, band + rise * 0.28, 1.9 * u);
+      rosette(innerR - rise * 0.75, band + rise * 0.28, 1.9 * u);
+    }
+
+    if (L.title && cfg.libraryName) {
+      const fs = 26 * u;
+      const ty = band * 0.6;
+      ctx.font = `${fs}px ${FONT_SCRIPT}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const tw = ctx.measureText(cfg.libraryName).width;
+      glow(cx, ty, tw * 0.8, [255, 200, 120], 0.12);
+      ctx.save();
+      ctx.shadowColor = "rgba(0,0,0,0.85)";
+      ctx.shadowBlur = 2 * u;
+      ctx.shadowOffsetY = 1.2 * u;
+      ctx.fillStyle = gold(0, ty - fs * 0.5, 0, ty + fs * 0.4);
+      ctx.fillText(cfg.libraryName, cx, ty);
+      ctx.restore();
+      const len = Math.min(70 * u, (W - tw) / 2 - f - 14 * u);
+      if (len > 20 * u) {
+        scroll(cx - tw / 2 - 8 * u, ty + 3 * u, -1, len);
+        scroll(cx + tw / 2 + 8 * u, ty + 3 * u, 1, len);
+      }
+    }
+
+    // Plinth.
+    const by = H - baseH;
+    const pg = ctx.createLinearGradient(0, by, 0, H);
+    pg.addColorStop(0, "#3d1e0d");
+    pg.addColorStop(1, "#0d0502");
+    ctx.fillStyle = pg;
+    ctx.beginPath();
+    ctx.rect(0, by, W, baseH);
+    ctx.fill();
+    texture(0.15);
+    ctx.fillStyle = gold(0, by, 0, by + 1.5 * u);
+    ctx.fillRect(0, by, W, 1.2 * u);
+  }
+
+  function plankTopSurface(y) {
+    const g = ctx.createLinearGradient(0, y - 4 * u, 0, y);
+    g.addColorStop(0, "#2a1408");
+    g.addColorStop(1, "#7b4623");
+    ctx.fillStyle = g;
+    ctx.fillRect(innerL, y - 4 * u, innerW, 4 * u);
+  }
+
+  function plankFront(y) {
+    const g = ctx.createLinearGradient(0, y, 0, y + plank);
+    g.addColorStop(0, "#6a3a1c");
+    g.addColorStop(0.5, "#4a2511");
+    g.addColorStop(1, "#241006");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.rect(innerL, y, innerW, plank);
+    ctx.fill();
+    texture(0.15);
+    grain(innerL, y + 1.5 * u, innerW, plank - 2 * u, false, 4, 0.2);
+    ctx.fillStyle = gold(0, y, 0, y + 1.6 * u);
+    ctx.fillRect(innerL, y + 0.3 * u, innerW, 1.1 * u);
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(innerL, y + plank - 0.8 * u, innerW, 0.8 * u);
+  }
+
+  // ---- composition -------------------------------------------------------
+  backWall();
+
+  const covers = scene.covers.slice();
+  const spines = scene.spines.map(b => ({ ...b, color: leatherFrom(b.img, b.id + b.title) }));
   const ribbons = [];
-  let queue = spines.slice();
-  let plaqueAt = null;
+  const lastShelf = L.shelves - 1;
+
   for (let s = 0; s < L.shelves; s++) {
     const slotTop = top + s * slotH;
-    const plankTop = slotTop + slotH - plank;
-    const baseY = plankTop - 0.8 * u;
-    const maxH = baseY - slotTop - 4 * u;
-    const isLast = s === L.shelves - 1;
+    const plankY = slotTop + slotH - plank;
+    const baseY = plankY - 1 * u;
+    const maxH = baseY - slotTop - 7 * u;
 
-    // Shadow cast by the shelf above (or the crown).
-    for (let i = 0; i < 8; i++) {
-      ctx.setFillColor(new Color("#000000", 0.07 * (1 - i / 8)));
-      ctx.fillRect(new Rect(left, slotTop + i * u, iw, u));
+    // Shadow under the shelf above (or the crown).
+    const sg = ctx.createLinearGradient(0, slotTop, 0, slotTop + 18 * u);
+    sg.addColorStop(0, "rgba(0,0,0,0.6)");
+    sg.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = sg;
+    ctx.fillRect(innerL, slotTop, innerW, 18 * u);
+
+    plankTopSurface(plankY);
+
+    let x = innerL + 6 * u;
+    let limit = innerR - 5 * u;
+    const decor = [];
+    const roseH = Math.min(maxH * 0.68, 78 * u);
+    if (cfg.showRose && s === lastShelf && scene.family !== "small") {
+      const rw = roseH * 0.46 + 8 * u;
+      const rx = limit - rw / 2;
+      decor.push(() => rose(rx, baseY, roseH));
+      limit -= rw + 6 * u;
+    }
+    if (cfg.showCandle && s === 0 && scene.family !== "small" && (L.shelves > 1 || scene.family === "medium")) {
+      const cx = limit - 9 * u;
+      decor.push(() => candle(cx, baseY, Math.min(maxH * 0.62, 70 * u)));
+      limit -= 20 * u;
     }
 
-    // Top surface of the plank, behind the books.
-    ctx.setFillColor(new Color(WOOD.plankTop));
-    ctx.fillRect(new Rect(left, plankTop - 2.5 * u, iw, 2.5 * u));
-    ctx.setFillColor(new Color("#000000", 0.25));
-    ctx.fillRect(new Rect(left, plankTop - 2.5 * u, iw, 0.6 * u));
-
-    let x = left + 5 * u;
-    let limit = right - 5 * u;
-    const roseW = 30 * u;
-    const hasRose = CONFIG.showRose && isLast && maxH >= 40 * u;
-    if (hasRose) limit -= roseW + 4 * u;
-
-    // Face-out covers on the top shelf.
     if (s === 0) {
-      for (const c of covers) {
-        const h = maxH * 0.96;
-        let ratio = c.image ? c.image.size.width / c.image.size.height : 0.66;
-        ratio = Math.max(0.55, Math.min(0.8, ratio));
-        const cw = h * ratio;
-        if (x + cw > limit) break;
-        drawCover(ctx, x, baseY, cw, h, c, u);
-        ribbons.push({ x: x + cw * 0.72, y: baseY, len: plank + 6 * u });
-        x += cw + 3 * u;
+      while (covers.length) {
+        const b = covers[0];
+        const h = maxH * 0.86;
+        const ratio = b.img ? clamp(b.img.width / b.img.height, 0.6, 0.75) : 0.66;
+        const w = h * ratio;
+        if (x + w + 3 * u > limit) break;
+        covers.shift();
+        cover(x, baseY, w, h, b);
+        ribbons.push(x + w * 0.68);
+        x += w + 6 * u;
       }
-      if (covers.length) x += 2 * u;
     }
 
-    // Leather spines for the user's books.
-    const spinesFrom = x;
-    while (queue.length) {
-      const book = queue[0];
-      const r = seeded(book.id + book.title);
-      const sw = Math.round((13 + r() * 6) * u);
-      if (x + sw > limit) break;
-      queue.shift();
-      const h = maxH * (0.8 + r() * 0.17);
-      drawSpine(ctx, x, baseY, sw, h, pick(LEATHER, r), spineTitle(book.title), u, r, false);
-      x += sw + 0.6 * u;
+    while (spines.length) {
+      const b = spines[0];
+      const r = seeded(b.id + "size");
+      const w = (15 + r() * 7) * u;
+      if (x + w > limit) break;
+      spines.shift();
+      spine(x, baseY, w, maxH * (0.84 + r() * 0.15), b.color, b.title, b.id, false);
+      x += w + 0.4 * u;
     }
-    if (x > spinesFrom && !plaqueAt) plaqueAt = { s, cx: (spinesFrom + x) / 2 };
 
-    // Antique filler volumes so the case looks full.
-    if (CONFIG.fillEmptySpace) {
-      let stacked = false;
-      x += 2 * u;
+    let gap = limit - x;
+    if (cfg.fillEmptySpace && gap > 6 * u) {
+      x += 4 * u;
+      gap -= 4 * u;
+      const stackW = (38 + rng() * 8) * u;
+      const stackFirst = gap > stackW + 20 * u && rng() < 0.5;
+      if (stackFirst) {
+        flatStack(x, baseY, stackW, "stack" + s);
+        x += stackW + 5 * u;
+      }
       while (true) {
-        const room = limit - x;
-        const stackW = (34 + rng() * 10) * u;
-        if (!stacked && room >= stackW && rng() < 0.35) {
-          drawFlatStack(ctx, x, baseY, stackW, u, rng);
-          x += stackW + 2 * u;
-          stacked = true;
-          continue;
-        }
-        const sw = (7 + rng() * 7) * u;
-        if (sw > room) break;
-        const h = maxH * (0.68 + rng() * 0.27);
-        drawSpine(ctx, x, baseY, sw, h, mix(pick(LEATHER, rng), "#000000", 0.35), "", u, rng, true);
-        x += sw + 0.6 * u;
+        const w = (8 + rng() * 8) * u;
+        const reserve = !stackFirst && gap > stackW + 30 * u ? stackW + 6 * u : 0;
+        if (x + w > limit - reserve) break;
+        const c = mix(LEATHER[Math.floor(rng() * LEATHER.length)], [24, 10, 4], 0.35);
+        spine(x, baseY, w, maxH * (0.7 + rng() * 0.25), c, "", "filler" + s + x, true);
+        x += w + 0.4 * u;
       }
+      if (!stackFirst && limit - x >= stackW + 4 * u) flatStack(x + 4 * u, baseY, stackW, "stack" + s);
     }
 
-    if (hasRose) drawRose(ctx, right - 5 * u - roseW / 2, baseY, u);
-
-    drawPlank(ctx, left, plankTop, iw, plank, u, rng);
-
-    if (L.plaque && plaqueAt && plaqueAt.s === s) drawPlaque(ctx, plaqueAt.cx, plankTop, plank, "Favorites", u);
+    decor.forEach(d => d());
+    plankFront(plankY);
+    for (const rx of ribbons.splice(0)) ribbon(rx, baseY - 3 * u, plankY + plank + 5 * u);
   }
 
-  for (const r of ribbons) drawRibbon(ctx, r.x, r.y, r.len, u);
+  frame();
 
-  // Vignette toward the edges of the case.
-  for (let i = 0; i < 10; i++) {
-    ctx.setStrokeColor(new Color("#000000", 0.05));
-    ctx.setLineWidth(2 * u);
-    ctx.strokeRect(new Rect(left + i * 2 * u, top + i * 2 * u, iw - i * 4 * u, H - top - baseH - i * 4 * u));
-  }
+  // Candle-warm glow and a soft vignette.
+  glow(W / 2, top + (H - top) * 0.25, Math.max(W, H) * 0.7, [255, 180, 110], 0.1);
+  const v = ctx.createRadialGradient(W / 2, H * 0.45, Math.min(W, H) * 0.35, W / 2, H * 0.5, Math.max(W, H) * 0.8);
+  v.addColorStop(0, "rgba(0,0,0,0)");
+  v.addColorStop(1, "rgba(0,0,0,0.55)");
+  ctx.fillStyle = v;
+  ctx.fillRect(0, 0, W, H);
 
-  drawFrame(ctx, W, H, f, band, rise, baseH, u, rng, L.title ? CONFIG.libraryName : "");
-
-  if (library.error && !covers.length && !spines.length) {
-    drawNote(ctx, W, H, u, "Couldn't reach Goodreads.\nIs your profile public?");
-  } else if (!covers.length && !spines.length) {
-    drawNote(ctx, W, H, u, `No books on “${CONFIG.readingShelf}”\nor “${CONFIG.spineShelf}” yet.`);
-  }
-
-  return ctx.getImage();
-}
-
-// ---------------------------------------------------------------------------
-// Pieces of furniture
-
-function drawFrame(ctx, W, H, f, band, rise, baseH, u, rng, title) {
-  const cx = W / 2;
-
-  // Pillars.
-  for (const x of [0, W - f]) {
-    ctx.setFillColor(new Color(WOOD.frame));
-    ctx.fillRect(new Rect(x, 0, f, H));
-    grain(ctx, new Rect(x + 0.5 * u, 0, f - u, H), rng, u, true, 4, 0.12);
-    const inner = x === 0 ? f - 1.2 * u : x;
-    ctx.setFillColor(new Color(WOOD.frameLight, 0.8));
-    ctx.fillRect(new Rect(inner, 0, 1.2 * u, H));
-    goldLine(ctx, [new Point(x + f / 2, band + 2 * u), new Point(x + f / 2, H - baseH - 2 * u)], u * 0.8);
-  }
-
-  // Crown with an arched opening.
-  const k = 0.5523;
-  const archL = f, archR = W - f, archY = band + rise;
-  const crown = new Path();
-  crown.move(new Point(0, 0));
-  crown.addLine(new Point(W, 0));
-  crown.addLine(new Point(W, archY));
-  crown.addLine(new Point(archR, archY));
-  crown.addCurve(new Point(cx, band), new Point(archR, archY - k * rise), new Point(cx + k * (cx - archL), band));
-  crown.addCurve(new Point(archL, archY), new Point(cx - k * (cx - archL), band), new Point(archL, archY - k * rise));
-  crown.addLine(new Point(0, archY));
-  crown.closeSubpath();
-  ctx.addPath(crown);
-  ctx.setFillColor(new Color(WOOD.frame));
-  ctx.fillPath();
-  grain(ctx, new Rect(0, 0.5 * u, W, Math.max(2 * u, band - u)), rng, u, false, Math.round(band / (2.5 * u)) + 1, 0.12);
-
-  // Gold molding following the arch, twice.
-  for (const [off, a] of [[0, 1], [2.6 * u, 0.55]]) {
-    const p = new Path();
-    p.move(new Point(archR - off, archY));
-    p.addCurve(new Point(cx, band + off), new Point(archR - off, archY - k * rise), new Point(cx + k * (cx - archL), band + off));
-    p.addCurve(new Point(archL + off, archY), new Point(cx - k * (cx - archL), band + off), new Point(archL + off, archY - k * rise));
-    ctx.addPath(p);
-    ctx.setStrokeColor(new Color(GOLD.base, a));
-    ctx.setLineWidth(off ? 0.6 * u : 1.3 * u);
-    ctx.strokePath();
-  }
-  // Keystone rosette.
-  rosette(ctx, cx, band + 0.5 * u, 2.6 * u);
-  // Spandrel ornaments.
-  if (rise >= 12 * u) {
-    rosette(ctx, archL + rise * 0.9, band + rise * 0.32, 1.8 * u);
-    rosette(ctx, archR - rise * 0.9, band + rise * 0.32, 1.8 * u);
-  }
-
-  // Top cornice.
-  ctx.setFillColor(new Color(WOOD.frameDark));
-  ctx.fillRect(new Rect(0, 0, W, 1.5 * u));
-  goldLine(ctx, [new Point(0, 2.2 * u), new Point(W, 2.2 * u)], 0.7 * u);
-
-  if (title) {
-    const fs = 15 * u;
-    ctx.setFont(new Font("SnellRoundhand-Bold", fs));
-    ctx.setTextAlignedCenter();
-    ctx.setTextColor(new Color("#000000", 0.6));
-    ctx.drawTextInRect(title, new Rect(0, band / 2 - fs * 0.62 + 0.8 * u, W, fs * 1.6));
-    ctx.setTextColor(new Color(GOLD.hi));
-    ctx.drawTextInRect(title, new Rect(0, band / 2 - fs * 0.62, W, fs * 1.6));
-    const tw = title.length * fs * 0.42;
-    const y = band / 2 + 1.5 * u;
-    for (const dir of [-1, 1]) {
-      const a = cx + dir * (tw / 2 + 8 * u), b = cx + dir * (W * 0.38);
-      goldLine(ctx, [new Point(a, y), new Point(b, y)], 0.7 * u);
-      rosette(ctx, b + dir * 2.5 * u, y, 1.4 * u);
-    }
-  }
-
-  // Plinth.
-  const by = H - baseH;
-  ctx.setFillColor(new Color(WOOD.frame));
-  ctx.fillRect(new Rect(0, by, W, baseH));
-  grain(ctx, new Rect(0, by + 1.5 * u, W, baseH - 2 * u), rng, u, false, 3, 0.12);
-  goldLine(ctx, [new Point(0, by + 0.7 * u), new Point(W, by + 0.7 * u)], 0.9 * u);
-  ctx.setFillColor(new Color(WOOD.frameDark));
-  ctx.fillRect(new Rect(0, H - 2 * u, W, 2 * u));
-}
-
-function drawPlank(ctx, x, y, w, h, u, rng) {
-  vGradient(ctx, new Rect(x, y, w, h), WOOD.plankFront, WOOD.plankFrontDark, 8);
-  grain(ctx, new Rect(x, y + 1.5 * u, w, h - 2.5 * u), rng, u, false, 2, 0.12);
-  goldLine(ctx, [new Point(x, y + 0.5 * u), new Point(x + w, y + 0.5 * u)], 0.8 * u);
-  ctx.setFillColor(new Color("#000000", 0.5));
-  ctx.fillRect(new Rect(x, y + h - 0.8 * u, w, 0.8 * u));
-}
-
-function drawSpine(ctx, x, baseY, w, h, color, title, u, rng, filler) {
-  const y = baseY - h;
-  // Shadow on the wall behind.
-  ctx.setFillColor(new Color("#000000", 0.3));
-  ctx.fillRect(new Rect(x + w * 0.4, y + 2 * u, w * 0.6 + 2 * u, h - 2 * u));
-
-  ctx.setFillColor(new Color(color));
-  ctx.fillRect(new Rect(x, y, w, h));
-  // Rounded-spine shading.
-  const shades = [[0, 0.1, "#ffffff", 0.14], [0.1, 0.28, "#ffffff", 0.06], [0.68, 0.86, "#000000", 0.16], [0.86, 1, "#000000", 0.32]];
-  for (const [a, b, c, alpha] of shades) {
-    ctx.setFillColor(new Color(c, alpha));
-    ctx.fillRect(new Rect(x + w * a, y, w * (b - a), h));
-  }
-  ctx.setFillColor(new Color("#000000", 0.35));
-  ctx.fillRect(new Rect(x, y, w, 0.8 * u));
-
-  // Raised gilt bands.
-  const bandA = filler ? 0.6 : 0.95;
-  for (const t of [0.06, 0.1, 0.9, 0.94]) {
-    ctx.setFillColor(new Color(GOLD.base, bandA));
-    ctx.fillRect(new Rect(x + 0.5 * u, y + h * t, w - u, 0.8 * u));
-  }
-  if (filler) {
-    if (rng() < 0.5) {
-      ctx.setFillColor(new Color(GOLD.lo, 0.7));
-      ctx.fillRect(new Rect(x + w * 0.3, y + h * 0.45, w * 0.4, 0.8 * u));
-      ctx.fillRect(new Rect(x + w * 0.3, y + h * 0.55, w * 0.4, 0.8 * u));
-    }
-    return;
-  }
-
-  const textTop = y + h * 0.15, textBottom = y + h * 0.85;
-  // Some volumes carry a darker title label.
-  if (rng() < 0.4) {
-    ctx.setFillColor(new Color(mix(color, "#000000", 0.45)));
-    ctx.fillRect(new Rect(x + 1.2 * u, textTop - u, w - 2.4 * u, textBottom - textTop + 2 * u));
-    ctx.setStrokeColor(new Color(GOLD.base, 0.8));
-    ctx.setLineWidth(0.5 * u);
-    ctx.strokeRect(new Rect(x + 1.2 * u, textTop - u, w - 2.4 * u, textBottom - textTop + 2 * u));
-  }
-
-  // Title in gilt letters stacked down the spine, shrinking a little so the
-  // first word fits when possible.
-  const region = textBottom - textTop;
-  const word = (title.length > 8 ? title.replace(/^(THE|A|AN) /, "") : title).split(" ")[0];
-  const fit = region / (Math.min(word.length, 8) * 1.02);
-  const fs = Math.min(w * 0.56, Math.max(fit, w * 0.4));
-  const lh = fs * 1.02;
-  const max = Math.floor(region / lh + 0.01);
-  const letters = fitLetters(title, max);
-  const ty = (textTop + textBottom) / 2 - (letters.length * lh) / 2 - fs * 0.22;
-  ctx.setFont(new Font("Baskerville-Bold", fs));
-  ctx.setTextAlignedCenter();
-  letters.forEach((ch, i) => {
-    const r = new Rect(x - 2 * u, ty + i * lh, w + 4 * u, fs * 1.7);
-    ctx.setTextColor(new Color("#000000", 0.5));
-    ctx.drawTextInRect(ch, new Rect(r.x + 0.4 * u, r.y + 0.4 * u, r.width, r.height));
-    ctx.setTextColor(new Color(GOLD.hi));
-    ctx.drawTextInRect(ch, r);
-  });
-}
-
-function drawFlatStack(ctx, x, baseY, w, u, rng) {
-  let y = baseY;
-  const n = 2 + Math.floor(rng() * 2);
-  for (let i = 0; i < n; i++) {
-    const t = (5 + rng() * 3) * u;
-    const bw = w - rng() * 6 * u;
-    const bx = x + rng() * (w - bw);
-    y -= t;
-    const c = mix(pick(LEATHER, rng), "#000000", 0.25);
-    ctx.setFillColor(new Color("#000000", 0.3));
-    ctx.fillRect(new Rect(bx + 2 * u, y + u, bw, t));
-    ctx.setFillColor(new Color(c));
-    ctx.fillRect(new Rect(bx, y, bw, t));
-    ctx.setFillColor(new Color("#ffffff", 0.1));
-    ctx.fillRect(new Rect(bx, y, bw, t * 0.3));
-    ctx.setFillColor(new Color("#000000", 0.3));
-    ctx.fillRect(new Rect(bx, y + t * 0.75, bw, t * 0.25));
-    ctx.setFillColor(new Color(GOLD.base, 0.8));
-    for (const fx of [0.08, 0.14, 0.86, 0.92]) ctx.fillRect(new Rect(bx + bw * fx, y + 0.5 * u, 0.8 * u, t - u));
+  if (scene.note) {
+    const w = Math.min(W - 30 * u, 170 * u), h = 36 * u;
+    const nx = (W - w) / 2, ny = H / 2 - h / 2;
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.6)";
+    ctx.shadowBlur = 10 * u;
+    const pg = ctx.createLinearGradient(0, ny, 0, ny + h);
+    pg.addColorStop(0, "#f4e7c8");
+    pg.addColorStop(1, "#dcc79b");
+    ctx.fillStyle = pg;
+    roundRect(nx, ny, w, h, 3 * u);
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = "#3a2208";
+    ctx.font = `italic 600 ${11 * u}px ${FONT_ITALIC}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    scene.note.split("\n").forEach((line, i, arr) => ctx.fillText(line, W / 2, H / 2 + (i - (arr.length - 1) / 2) * 12 * u));
   }
 }
-
-function drawCover(ctx, x, baseY, w, h, cover, u) {
-  const y = baseY - h;
-  ctx.setFillColor(new Color("#000000", 0.45));
-  ctx.fillRect(new Rect(x + 2 * u, y + 2.5 * u, w, h - 2 * u));
-
-  if (cover.image) {
-    ctx.drawImageInRect(cover.image, new Rect(x, y, w, h));
-  } else {
-    const color = pick(LEATHER, seeded(cover.book.id + "cover"));
-    ctx.setFillColor(new Color(color));
-    ctx.fillRect(new Rect(x, y, w, h));
-    ctx.setStrokeColor(new Color(GOLD.base));
-    ctx.setLineWidth(0.8 * u);
-    ctx.strokeRect(new Rect(x + 3 * u, y + 3 * u, w - 6 * u, h - 6 * u));
-    const fs = Math.max(6 * u, w * 0.13);
-    ctx.setFont(new Font("Baskerville-Bold", fs));
-    ctx.setTextColor(new Color(GOLD.hi));
-    ctx.setTextAlignedCenter();
-    ctx.drawTextInRect(shortTitle(cover.book.title), new Rect(x + 5 * u, y + h * 0.22, w - 10 * u, h * 0.6));
-  }
-  // Hinge crease and edge.
-  ctx.setFillColor(new Color("#000000", 0.28));
-  ctx.fillRect(new Rect(x, y, w * 0.05, h));
-  ctx.setFillColor(new Color("#ffffff", 0.18));
-  ctx.fillRect(new Rect(x + w * 0.05, y, 0.6 * u, h));
-  ctx.setStrokeColor(new Color("#000000", 0.55));
-  ctx.setLineWidth(0.6 * u);
-  ctx.strokeRect(new Rect(x, y, w, h));
-}
-
-function drawRibbon(ctx, x, y, len, u) {
-  const w = 3.4 * u;
-  const p = new Path();
-  p.move(new Point(x, y - 3 * u));
-  p.addLine(new Point(x + w, y - 3 * u));
-  p.addLine(new Point(x + w, y + len));
-  p.addLine(new Point(x + w / 2, y + len - 2 * u));
-  p.addLine(new Point(x, y + len));
-  p.closeSubpath();
-  ctx.addPath(p);
-  ctx.setFillColor(new Color(RIBBON));
-  ctx.fillPath();
-  ctx.setFillColor(new Color("#ffffff", 0.18));
-  ctx.fillRect(new Rect(x, y - 3 * u, w * 0.35, len));
-}
-
-function drawPlaque(ctx, cx, plankTop, plank, text, u) {
-  const fs = plank * 0.62;
-  const w = text.length * fs * 0.5 + 8 * u, h = plank - 2.4 * u;
-  const r = new Rect(cx - w / 2, plankTop + 1.4 * u, w, h);
-  const p = new Path();
-  p.addRoundedRect(r, 1.5 * u, 1.5 * u);
-  ctx.addPath(p);
-  ctx.setFillColor(new Color(GOLD.base));
-  ctx.fillPath();
-  ctx.setFillColor(new Color(GOLD.hi, 0.6));
-  ctx.fillRect(new Rect(r.x + u, r.y + 0.5 * u, r.width - 2 * u, 0.6 * u));
-  ctx.setFont(new Font("Baskerville-SemiBoldItalic", fs));
-  ctx.setTextColor(new Color("#3a2208"));
-  ctx.setTextAlignedCenter();
-  ctx.drawTextInRect(text, new Rect(r.x, r.y + h / 2 - fs * 0.62, r.width, fs * 1.5));
-}
-
-// The enchanted rose under its bell jar.
-function drawRose(ctx, cx, baseY, u) {
-  const jw = 22 * u, jh = 40 * u, padH = 4.5 * u;
-  const yb = baseY - padH, yt = yb - jh, r = jw / 2;
-  const x0 = cx - r, x1 = cx + r, k = 0.5523;
-
-  glow(ctx, cx, yt + jh * 0.45, 26 * u, 30 * u, "#ff5a7a", 0.03, 16);
-
-  // Pedestal.
-  ctx.setFillColor(new Color("#000000", 0.4));
-  ctx.fillRect(new Rect(x0 - 1 * u, baseY - padH + 2 * u, jw + 8 * u, padH));
-  const ped = new Path();
-  ped.addRoundedRect(new Rect(x0 - 3 * u, baseY - padH, jw + 6 * u, padH), 1.5 * u, 1.5 * u);
-  ctx.addPath(ped);
-  ctx.setFillColor(new Color(WOOD.frame));
-  ctx.fillPath();
-  goldLine(ctx, [new Point(x0 - 3 * u, baseY - padH + 0.6 * u), new Point(x1 + 3 * u, baseY - padH + 0.6 * u)], 0.8 * u);
-
-  // Stem and leaves.
-  const bloomY = yt + jh * 0.38;
-  const stem = new Path();
-  stem.move(new Point(cx, bloomY + 4 * u));
-  stem.addCurve(new Point(cx, yb), new Point(cx - 3 * u, bloomY + 14 * u), new Point(cx + 3 * u, yb - 10 * u));
-  ctx.addPath(stem);
-  ctx.setStrokeColor(new Color("#3d6b31"));
-  ctx.setLineWidth(1.1 * u);
-  ctx.strokePath();
-  leaf(ctx, cx - 0.5 * u, bloomY + 13 * u, -1, u);
-  leaf(ctx, cx + 0.8 * u, bloomY + 20 * u, 1, u);
-
-  // Bloom.
-  const petals = [[-3.2, 0.5, 4.2, 3.6], [3.2, 0.5, 4.2, 3.6], [0, 2.4, 5, 3.4], [-2, -1.6, 3.6, 3.4], [2, -1.6, 3.6, 3.4]];
-  ctx.setFillColor(new Color("#8e0f24"));
-  for (const [dx, dy, rx, ry] of petals) {
-    ctx.fillEllipse(new Rect(cx + dx * u - rx * u, bloomY + dy * u - ry * u, 2 * rx * u, 2 * ry * u));
-  }
-  ctx.setFillColor(new Color("#c41e3a"));
-  for (const [dx, dy, rx, ry] of [[-1.6, 0, 2.8, 2.8], [1.6, 0, 2.8, 2.8], [0, -1.2, 3, 2.6]]) {
-    ctx.fillEllipse(new Rect(cx + dx * u - rx * u, bloomY + dy * u - ry * u, 2 * rx * u, 2 * ry * u));
-  }
-  ctx.setFillColor(new Color("#e2445e"));
-  ctx.fillEllipse(new Rect(cx - 1.6 * u, bloomY - 2.2 * u, 3.2 * u, 2.4 * u));
-  const swirl = new Path();
-  swirl.move(new Point(cx - 1.8 * u, bloomY - 0.4 * u));
-  swirl.addQuadCurve(new Point(cx + 1.8 * u, bloomY - 0.6 * u), new Point(cx, bloomY + 1.4 * u));
-  ctx.addPath(swirl);
-  ctx.setStrokeColor(new Color("#6e0a1b"));
-  ctx.setLineWidth(0.6 * u);
-  ctx.strokePath();
-
-  // A fallen petal.
-  ctx.setFillColor(new Color("#b3172f"));
-  ctx.fillEllipse(new Rect(cx + 3.5 * u, yb - 2 * u, 3.6 * u, 1.8 * u));
-
-  // Magic sparkles.
-  const sr = seeded("sparkle");
-  for (let i = 0; i < 7; i++) {
-    const sx = x0 + 3 * u + sr() * (jw - 6 * u), sy = yt + 6 * u + sr() * (jh - 12 * u);
-    const s = (0.5 + sr() * 0.8) * u;
-    ctx.setFillColor(new Color(i % 2 ? "#ffd6e0" : GOLD.hi, 0.85));
-    ctx.fillEllipse(new Rect(sx - s, sy - s, 2 * s, 2 * s));
-  }
-
-  // Glass dome.
-  const dome = new Path();
-  dome.move(new Point(x0, yb));
-  dome.addLine(new Point(x0, yt + r));
-  dome.addCurve(new Point(cx, yt), new Point(x0, yt + r - k * r), new Point(cx - k * r, yt));
-  dome.addCurve(new Point(x1, yt + r), new Point(cx + k * r, yt), new Point(x1, yt + r - k * r));
-  dome.addLine(new Point(x1, yb));
-  dome.closeSubpath();
-  ctx.addPath(dome);
-  ctx.setFillColor(new Color("#ffffff", 0.07));
-  ctx.fillPath();
-  ctx.addPath(dome);
-  ctx.setStrokeColor(new Color("#f6e7d3", 0.5));
-  ctx.setLineWidth(0.8 * u);
-  ctx.strokePath();
-  const shine = new Path();
-  shine.move(new Point(x0 + 2.6 * u, yb - 5 * u));
-  shine.addLine(new Point(x0 + 2.6 * u, yt + r));
-  shine.addQuadCurve(new Point(cx - 1 * u, yt + 2.6 * u), new Point(x0 + 3.4 * u, yt + 3.4 * u));
-  ctx.addPath(shine);
-  ctx.setStrokeColor(new Color("#ffffff", 0.35));
-  ctx.setLineWidth(1.3 * u);
-  ctx.strokePath();
-  // Finial.
-  ctx.setFillColor(new Color(GOLD.base));
-  ctx.fillEllipse(new Rect(cx - 1.6 * u, yt - 2.6 * u, 3.2 * u, 3.2 * u));
-}
-
-function leaf(ctx, x, y, dir, u) {
-  const p = new Path();
-  p.move(new Point(x, y));
-  p.addQuadCurve(new Point(x + dir * 6 * u, y - 2.5 * u), new Point(x + dir * 2.5 * u, y - 4 * u));
-  p.addQuadCurve(new Point(x, y), new Point(x + dir * 4 * u, y + 1 * u));
-  p.closeSubpath();
-  ctx.addPath(p);
-  ctx.setFillColor(new Color("#2f5d2a"));
-  ctx.fillPath();
-}
-
-function drawNote(ctx, W, H, u, text) {
-  const w = Math.min(W - 30 * u, 160 * u), h = 30 * u;
-  const r = new Rect((W - w) / 2, H / 2 - h / 2, w, h);
-  const p = new Path();
-  p.addRoundedRect(r, 3 * u, 3 * u);
-  ctx.addPath(p);
-  ctx.setFillColor(new Color("#efe0bf", 0.95));
-  ctx.fillPath();
-  ctx.setFont(new Font("Baskerville-SemiBoldItalic", 8.5 * u));
-  ctx.setTextColor(new Color("#3a2208"));
-  ctx.setTextAlignedCenter();
-  ctx.drawTextInRect(text, new Rect(r.x + 4 * u, r.y + 4.5 * u, r.width - 8 * u, h - 6 * u));
-}
-
-// ---------------------------------------------------------------------------
-// Drawing helpers
-
-function goldLine(ctx, pts, width) {
-  for (const [c, a, dy] of [[GOLD.lo, 0.9, width * 0.5], [GOLD.base, 1, 0], [GOLD.hi, 0.5, -width * 0.35]]) {
-    const p = new Path();
-    p.move(new Point(pts[0].x, pts[0].y + dy));
-    for (const pt of pts.slice(1)) p.addLine(new Point(pt.x, pt.y + dy));
-    ctx.addPath(p);
-    ctx.setStrokeColor(new Color(c, a));
-    ctx.setLineWidth(width * (c === GOLD.base ? 1 : 0.6));
-    ctx.strokePath();
-  }
-}
-
-function rosette(ctx, x, y, r) {
-  ctx.setFillColor(new Color(GOLD.lo));
-  ctx.fillEllipse(new Rect(x - r * 1.2, y - r * 1.2, r * 2.4, r * 2.4));
-  ctx.setFillColor(new Color(GOLD.base));
-  for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-    ctx.fillEllipse(new Rect(x + dx * r * 0.55 - r * 0.55, y + dy * r * 0.55 - r * 0.55, r * 1.1, r * 1.1));
-  }
-  ctx.setFillColor(new Color(GOLD.hi));
-  ctx.fillEllipse(new Rect(x - r * 0.4, y - r * 0.4, r * 0.8, r * 0.8));
-}
-
-function vGradient(ctx, rect, top, bottom, steps = 32) {
-  const h = rect.height / steps;
-  for (let i = 0; i < steps; i++) {
-    ctx.setFillColor(new Color(mix(top, bottom, i / (steps - 1))));
-    ctx.fillRect(new Rect(rect.x, rect.y + i * h, rect.width, h + 0.5));
-  }
-}
-
-function glow(ctx, cx, cy, rx, ry, hex, alpha, layers) {
-  ctx.setFillColor(new Color(hex, alpha));
-  for (let i = layers; i >= 1; i--) {
-    const k = i / layers;
-    ctx.fillEllipse(new Rect(cx - rx * k, cy - ry * k, 2 * rx * k, 2 * ry * k));
-  }
-}
-
-function grain(ctx, rect, rng, u, vertical, count, alpha) {
-  for (let i = 0; i < count; i++) {
-    const p = new Path();
-    const amp = (0.4 + rng() * 1.2) * u;
-    const segs = 4;
-    if (vertical) {
-      const x = rect.x + amp + rng() * (rect.width - 2 * amp);
-      p.move(new Point(x, rect.y));
-      for (let s = 1; s <= segs; s++) {
-        const y = rect.y + (rect.height * s) / segs;
-        p.addQuadCurve(new Point(x, y), new Point(x + (s % 2 ? amp : -amp), y - rect.height / segs / 2));
-      }
-    } else {
-      const y = rect.y + amp + rng() * Math.max(0, rect.height - 2 * amp);
-      p.move(new Point(rect.x, y));
-      for (let s = 1; s <= segs; s++) {
-        const x = rect.x + (rect.width * s) / segs;
-        p.addQuadCurve(new Point(x, y), new Point(x - rect.width / segs / 2, y + (s % 2 ? amp : -amp)));
-      }
-    }
-    ctx.addPath(p);
-    ctx.setStrokeColor(new Color(rng() < 0.5 ? "#000000" : "#c08050", alpha));
-    ctx.setLineWidth((0.4 + rng() * 0.6) * u);
-    ctx.strokePath();
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Text helpers
-
-function shortTitle(title) {
-  return title.replace(/\s*\([^)]*#[^)]*\)\s*$/, "").split(/:\s/)[0].trim();
-}
-
-function spineTitle(title) {
-  return shortTitle(title).toUpperCase().replace(/[^A-Z0-9À-Ý'&\s]/g, "").replace(/\s+/g, " ").trim();
-}
-
-// Choose up to `max` letters for a vertical spine, preferring whole words and
-// dropping a leading article if that helps the title fit.
-function fitLetters(title, max) {
-  if (max <= 0 || !title) return [];
-  let words = title.split(" ");
-  if (title.length > max && words.length > 1 && /^(THE|A|AN)$/.test(words[0])) words = words.slice(1);
-  const out = [];
-  for (const word of words) {
-    const need = (out.length ? 1 : 0) + word.length;
-    if (out.length + need > max) {
-      if (!out.length) return word.slice(0, max).split("");
-      break;
-    }
-    if (out.length) out.push(" ");
-    out.push(...word.split(""));
-  }
-  return out;
-}
-
-// ---------------------------------------------------------------------------
-// Small utilities
-
-function seeded(str) {
-  let h = 1779033703 ^ String(str).length;
-  for (let i = 0; i < String(str).length; i++) {
-    h = Math.imul(h ^ String(str).charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
-  }
-  let a = h >>> 0;
-  return () => {
-    a |= 0; a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function pick(list, rng) {
-  return list[Math.floor(rng() * list.length) % list.length];
-}
-
-function mix(a, b, t) {
-  const pa = hexRgb(a), pb = hexRgb(b);
-  const c = pa.map((v, i) => Math.round(v + (pb[i] - v) * t));
-  return "#" + c.map(v => v.toString(16).padStart(2, "0")).join("");
-}
-
-function hexRgb(hex) {
-  const h = hex.replace("#", "");
-  return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16));
-}
+// </renderer>
 
 await main();
 Script.complete();
