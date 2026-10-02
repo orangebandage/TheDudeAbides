@@ -29,6 +29,8 @@ const SIZES = {
 const CONFIG = {
   theme: process.env.THEME || "cozy", libraryName: "My Library", fillEmptySpace: true,
   showRose: true, showCandle: true, showPlant: true, showLights: true, showLeaves: true,
+  showLamp: true, showClock: true, showLabels: true,
+  readingShelf: "currently-reading", spineShelf: "favorites",
 };
 
 function stubCover(book, i) {

@@ -16,7 +16,7 @@
 // public shelf RSS feeds (Goodreads no longer offers an API).
 
 const CONFIG = {
-  theme: "cozy",                     // "cozy" (knit + fairy lights) or "enchanted" (Beast's library)
+  theme: "cozy",                     // "cozy", "rustic" or "enchanted" (see README)
   goodreadsUserId: "183463841",
   readingShelf: "currently-reading", // shown face-out with a ribbon bookmark
   spineShelf: "favorites",           // shown as spines
@@ -27,6 +27,9 @@ const CONFIG = {
   showPlant: true,                   // cozy: potted plant and trailing ivy
   showLights: true,                  // cozy: fairy lights under the shelves
   showLeaves: true,                  // cozy: autumn leaves on the shelves
+  showLamp: true,                    // rustic: a glowing table lamp
+  showClock: true,                   // rustic: a brass alarm clock
+  showLabels: true,                  // rustic: brass shelf labels
   refreshHours: 3,
 };
 
@@ -1564,7 +1567,7 @@ function renderLibrary(canvas, scene, makeCanvas) {
 
   // A modern spine: a soft-focus strip of the book's own cover, with the
   // title and author running down it.
-  function paperSpine(x, baseY, w, h, b) {
+  function paperSpine(x, baseY, w, h, b, look = {}) {
     const y = baseY - h;
     const r = seeded(b.id + "style");
     const base = dominantColor(b.img) || b.color || COZY[Math.floor(r() * COZY.length)];
@@ -1603,7 +1606,7 @@ function renderLibrary(canvas, scene, makeCanvas) {
     const light = luminance(base) < 150;
     const ink = light ? "#fbf3e4" : "#2a1d14";
     const accent = light ? "rgba(255,240,215,0.55)" : "rgba(40,25,15,0.45)";
-    const style = Math.floor(r() * 3);
+    const style = look.style != null ? look.style : Math.floor(r() * 3);
     const fonts = [
       { font: "600 {fs}px Oswald, 'Avenir Next Condensed', 'Arial Narrow', sans-serif", maxFs: 10 * u, upper: true },
       { font: "700 {fs}px " + FONT_SPINE, maxFs: 9.5 * u, upper: false },
@@ -1611,19 +1614,28 @@ function renderLibrary(canvas, scene, makeCanvas) {
     ][style];
     const title = shortTitle(b.title);
     const hasAuthor = b.author && h > 60 * u;
-    const t1 = y + h * (hasAuthor ? 0.74 : 0.95);
+    const split = look.fullAuthor ? 0.64 : 0.74;
+    const t1 = y + h * (hasAuthor ? split : 0.95);
     spineText(x, w, y + h * 0.05, t1, fonts.upper ? title.toUpperCase() : title, {
       font: fonts.font, maxFs: fonts.maxFs, fill: () => ink,
       shadow: light ? "rgba(0,0,0,0.45)" : null,
     });
     if (hasAuthor) {
       ctx.fillStyle = accent;
-      ctx.fillRect(x + w * 0.3, y + h * 0.765, w * 0.4, 0.5 * u);
-      const last = b.author.split(" ").pop().toUpperCase();
-      spineText(x, w, y + h * 0.79, y + h * 0.97, last, {
+      ctx.fillRect(x + w * 0.3, y + h * (split + 0.025), w * 0.4, 0.5 * u);
+      const author = look.fullAuthor ? b.author.toUpperCase() : b.author.split(" ").pop().toUpperCase();
+      const aEnd = look.fullAuthor ? 0.9 : 0.97;
+      spineText(x, w, y + h * (split + 0.05), y + h * aEnd, author, {
         font: "600 {fs}px Oswald, 'Avenir Next Condensed', sans-serif", maxFs: Math.min(6.5 * u, w * 0.34),
         minOneLine: 4 * u, minFs: 4 * u, singleLine: true, fill: () => ink,
       });
+      if (look.fullAuthor) {
+        // A little publisher's mark at the foot of the spine.
+        const m = Math.min(w * 0.4, 4.5 * u);
+        ctx.strokeStyle = ink;
+        ctx.lineWidth = 0.4 * u;
+        ctx.strokeRect(x + w / 2 - m / 2, y + h * 0.93, m, m);
+      }
     }
   }
 
@@ -1709,6 +1721,429 @@ function renderLibrary(canvas, scene, makeCanvas) {
     const v = ctx.createRadialGradient(W / 2, H * 0.45, Math.min(W, H) * 0.4, W / 2, H * 0.5, Math.max(W, H) * 0.85);
     v.addColorStop(0, "rgba(60,30,10,0)");
     v.addColorStop(1, "rgba(60,30,10,0.35)");
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // ---- rustic theme: plank wall, labelled shelves, stacks ------------------
+  function plankWall() {
+    const bh = 19 * u;
+    for (let y = 0, i = 0; y < H; y += bh, i++) {
+      const r = seeded("board" + i);
+      const c = mix(hex("#3f2a1d"), hex("#6a4a33"), r());
+      ctx.fillStyle = rgba(c);
+      ctx.fillRect(0, y, W, bh);
+      grain(0, y + 1 * u, W, bh - 2 * u, false, 9, 0.22);
+      // Butt joints between boards.
+      for (let x = r() * 120 * u; x < W; x += (110 + r() * 90) * u) {
+        ctx.fillStyle = "rgba(20,10,4,0.55)";
+        ctx.fillRect(x, y, 0.8 * u, bh);
+        ctx.fillStyle = "rgba(255,220,180,0.06)";
+        ctx.fillRect(x + 0.8 * u, y, 0.6 * u, bh);
+      }
+      if (r() < 0.5) {
+        const kx = r() * W, ky = y + bh * (0.3 + r() * 0.4);
+        ctx.fillStyle = "rgba(30,15,6,0.35)";
+        ctx.beginPath();
+        ctx.ellipse(kx, ky, 3 * u, 1.4 * u, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = "rgba(15,8,3,0.7)";
+      ctx.fillRect(0, y, W, 1 * u);
+      ctx.fillStyle = "rgba(255,225,190,0.08)";
+      ctx.fillRect(0, y + 1 * u, W, 0.6 * u);
+    }
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    texture(0.16);
+  }
+
+  function slimShelf(x0, x1, y, th) {
+    const tg = ctx.createLinearGradient(0, y - 3 * u, 0, y);
+    tg.addColorStop(0, "#2c2621");
+    tg.addColorStop(1, "#6b6058");
+    ctx.fillStyle = tg;
+    ctx.fillRect(x0, y - 3 * u, x1 - x0, 3 * u);
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.65)";
+    ctx.shadowBlur = 12 * u;
+    ctx.shadowOffsetY = 5 * u;
+    const g = ctx.createLinearGradient(0, y, 0, y + th);
+    g.addColorStop(0, "#5a514a");
+    g.addColorStop(1, "#2b2520");
+    ctx.fillStyle = g;
+    ctx.fillRect(x0, y, x1 - x0, th);
+    ctx.restore();
+    ctx.beginPath();
+    ctx.rect(x0, y, x1 - x0, th);
+    texture(0.15);
+    ctx.fillStyle = "rgba(255,240,220,0.25)";
+    ctx.fillRect(x0, y, x1 - x0, 0.5 * u);
+  }
+
+  function brassPlaque(x, y, text) {
+    const fs = 7 * u;
+    const spaced = text.split("").join(" ");
+    ctx.font = `700 ${fs}px ${FONT_SPINE}`;
+    const w = ctx.measureText(spaced).width + 14 * u, h = 11.5 * u;
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.6)";
+    ctx.shadowBlur = 4 * u;
+    ctx.shadowOffsetY = 1.5 * u;
+    const g = ctx.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, "#f3d58a");
+    g.addColorStop(0.45, "#c99a3d");
+    g.addColorStop(1, "#8a6420");
+    ctx.fillStyle = g;
+    roundRect(x, y, w, h, 1.6 * u);
+    ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = "rgba(90,60,15,0.8)";
+    ctx.lineWidth = 0.5 * u;
+    roundRect(x + 1.2 * u, y + 1.2 * u, w - 2.4 * u, h - 2.4 * u, 1 * u);
+    ctx.stroke();
+    for (const sx of [x + 3.2 * u, x + w - 3.2 * u]) {
+      ctx.fillStyle = "#7a5718";
+      ctx.beginPath();
+      ctx.arc(sx, y + h / 2, 0.9 * u, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "rgba(255,240,200,0.6)";
+    ctx.fillText(spaced, x + w / 2, y + h / 2 + 0.6 * u);
+    ctx.fillStyle = "#3d2a0c";
+    ctx.fillText(spaced, x + w / 2, y + h / 2);
+  }
+
+  // A book lying flat, spine facing out, with its page block and top cover
+  // showing in slight perspective.
+  function lyingBook(x, y, w, t, b) {
+    const top = y - t, d = 3 * u;
+    const r = seeded(b.id + "lying");
+    const base = dominantColor(b.img) || COZY[Math.floor(r() * COZY.length)];
+    ctx.fillStyle = rgba(mix(base, [255, 255, 255], 0.12));
+    ctx.beginPath();
+    ctx.moveTo(x, top);
+    ctx.lineTo(x + w, top);
+    ctx.lineTo(x + w + d, top - d);
+    ctx.lineTo(x + d, top - d);
+    ctx.closePath();
+    ctx.fill();
+    const pg = ctx.createLinearGradient(x + w, 0, x + w + d, 0);
+    pg.addColorStop(0, "#d9cdb4");
+    pg.addColorStop(1, "#f4ecda");
+    ctx.fillStyle = pg;
+    ctx.beginPath();
+    ctx.moveTo(x + w, top);
+    ctx.lineTo(x + w + d, top - d);
+    ctx.lineTo(x + w + d, y - d);
+    ctx.lineTo(x + w, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(140,120,90,0.35)";
+    ctx.lineWidth = 0.25 * u;
+    for (let k = 1; k < 5; k++) {
+      ctx.beginPath();
+      ctx.moveTo(x + w, top + (t * k) / 5);
+      ctx.lineTo(x + w + d, top - d + (t * k) / 5);
+      ctx.stroke();
+    }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, top, w, t);
+    ctx.clip();
+    if (b.img) {
+      const strip = makeCanvas(40, 3);
+      strip.getContext("2d").drawImage(b.img, 0, b.img.height * 0.1, b.img.width, b.img.height * 0.25, 0, 0, 40, 3);
+      ctx.drawImage(strip, x, top, w, t);
+      ctx.fillStyle = rgba(base, 0.5);
+      ctx.fillRect(x, top, w, t);
+    } else {
+      ctx.fillStyle = rgba(base);
+      ctx.fillRect(x, top, w, t);
+    }
+    const sg = ctx.createLinearGradient(0, top, 0, y);
+    sg.addColorStop(0, "rgba(255,255,255,0.18)");
+    sg.addColorStop(0.3, "rgba(255,255,255,0.03)");
+    sg.addColorStop(1, "rgba(0,0,0,0.4)");
+    ctx.fillStyle = sg;
+    ctx.fillRect(x, top, w, t);
+
+    const ink = luminance(base) < 150 ? "#fbf3e4" : "#2a1d14";
+    ctx.fillStyle = ink;
+    ctx.textBaseline = "middle";
+    let fs = t * 0.5;
+    const title = shortTitle(b.title).toUpperCase();
+    const author = (b.author || "").toUpperCase();
+    const font = size => `600 ${size}px Oswald, 'Avenir Next Condensed', sans-serif`;
+    ctx.font = font(fs);
+    while (fs > 4 * u && ctx.measureText(title).width > w * 0.6) ctx.font = font(fs -= 0.25 * u);
+    ctx.textAlign = "left";
+    ctx.fillText(title, x + 4 * u, top + t / 2 + 0.3 * u);
+    let afs = Math.min(fs * 0.8, t * 0.4);
+    ctx.font = font(afs);
+    while (afs > 3.5 * u && ctx.measureText(author).width > w * 0.3) ctx.font = font(afs -= 0.25 * u);
+    if (ctx.measureText(author).width <= w * 0.32) {
+      ctx.textAlign = "right";
+      ctx.fillText(author, x + w - 3 * u, top + t / 2 + 0.3 * u);
+    }
+    ctx.restore();
+  }
+
+  function bookStack(x, baseY, w, books) {
+    let y = baseY;
+    books.forEach(b => {
+      const r = seeded(b.id + "stack");
+      const t = (9 + r() * 3) * u;
+      const bw = w - r() * 8 * u;
+      lyingBook(x + r() * (w - bw) * 0.6, y, bw, t, b);
+      y -= t;
+    });
+  }
+
+  function lamp(cx, baseY, h) {
+    glow(cx, baseY - h * 0.75, h * 1.6, [255, 190, 110], 0.7);
+    // Ceramic base.
+    const bw = h * 0.3, bTop = baseY - h * 0.45;
+    const bg = ctx.createLinearGradient(cx - bw / 2, 0, cx + bw / 2, 0);
+    bg.addColorStop(0, "#4f6e80");
+    bg.addColorStop(0.4, "#dbe7ec");
+    bg.addColorStop(1, "#4a6878");
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.6)";
+    ctx.shadowBlur = 6 * u;
+    ctx.shadowOffsetX = 2 * u;
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.moveTo(cx - bw * 0.3, baseY - h * 0.05);
+    ctx.bezierCurveTo(cx - bw * 0.75, baseY - h * 0.2, cx - bw * 0.55, bTop + h * 0.08, cx - bw * 0.15, bTop);
+    ctx.lineTo(cx + bw * 0.15, bTop);
+    ctx.bezierCurveTo(cx + bw * 0.55, bTop + h * 0.08, cx + bw * 0.75, baseY - h * 0.2, cx + bw * 0.3, baseY - h * 0.05);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = gold(cx - bw * 0.4, 0, cx + bw * 0.4, 0);
+    ctx.fillRect(cx - bw * 0.4, baseY - h * 0.05, bw * 0.8, h * 0.05);
+    ctx.fillRect(cx - 0.8 * u, baseY - h * 0.62, 1.6 * u, h * 0.18);
+    // Glowing pleated shade.
+    const sTop = baseY - h, sBot = baseY - h * 0.6;
+    const tw = h * 0.42, bwid = h * 0.72;
+    const sg = ctx.createLinearGradient(cx - bwid / 2, 0, cx + bwid / 2, 0);
+    sg.addColorStop(0, "#d99a52");
+    sg.addColorStop(0.4, "#fff3d6");
+    sg.addColorStop(0.7, "#ffe2a8");
+    sg.addColorStop(1, "#c98a45");
+    ctx.fillStyle = sg;
+    ctx.beginPath();
+    ctx.moveTo(cx - tw / 2, sTop);
+    ctx.lineTo(cx + tw / 2, sTop);
+    ctx.lineTo(cx + bwid / 2, sBot);
+    ctx.quadraticCurveTo(cx, sBot + h * 0.05, cx - bwid / 2, sBot);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(160,100,40,0.35)";
+    ctx.lineWidth = 0.4 * u;
+    for (let k = 1; k < 9; k++) {
+      const f = k / 9;
+      ctx.beginPath();
+      ctx.moveTo(cx - tw / 2 + tw * f, sTop);
+      ctx.lineTo(cx - bwid / 2 + bwid * f, sBot + Math.sin(f * Math.PI) * h * 0.035);
+      ctx.stroke();
+    }
+    glow(cx, sBot, h * 0.5, [255, 220, 150], 0.7);
+    glow(cx, sTop + (sBot - sTop) * 0.5, h * 0.3, [255, 240, 200], 0.5);
+  }
+
+  function alarmClock(cx, baseY, r) {
+    const cy = baseY - r * 1.25;
+    const brass = (x0, x1) => {
+      const g = ctx.createLinearGradient(x0, 0, x1, 0);
+      g.addColorStop(0, "#6b4512");
+      g.addColorStop(0.35, "#f1cd7c");
+      g.addColorStop(0.6, "#b98632");
+      g.addColorStop(1, "#5a3a0e");
+      return g;
+    };
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.6)";
+    ctx.shadowBlur = 6 * u;
+    ctx.shadowOffsetX = 2 * u;
+    // Feet and bells.
+    ctx.strokeStyle = "#7a5418";
+    ctx.lineWidth = 1.4 * u;
+    for (const dir of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(cx + dir * r * 0.5, cy + r * 0.8);
+      ctx.lineTo(cx + dir * r * 0.8, baseY);
+      ctx.stroke();
+      ctx.fillStyle = brass(cx + dir * r * 0.7 - r * 0.4, cx + dir * r * 0.7 + r * 0.4);
+      ctx.beginPath();
+      ctx.arc(cx + dir * r * 0.7, cy - r * 0.85, r * 0.42, Math.PI, 0);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.fillStyle = brass(cx - r, cx + r);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = "#7a5418";
+    ctx.fillRect(cx - 0.5 * u, cy - r * 1.35, 1 * u, r * 0.4);
+    const face = ctx.createRadialGradient(cx - r * 0.2, cy - r * 0.2, r * 0.1, cx, cy, r * 0.82);
+    face.addColorStop(0, "#fffaf0");
+    face.addColorStop(1, "#e6dcc6");
+    ctx.fillStyle = face;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#2a2018";
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2;
+      const len = k % 3 ? 0.08 : 0.14;
+      ctx.save();
+      ctx.translate(cx + Math.sin(a) * r * 0.66, cy - Math.cos(a) * r * 0.66);
+      ctx.rotate(a);
+      ctx.fillRect(-0.25 * u, 0, 0.5 * u, r * len);
+      ctx.restore();
+    }
+    ctx.strokeStyle = "#1e1610";
+    ctx.lineCap = "round";
+    for (const [a, len, lw] of [[-0.9, 0.38, 1.1], [2.6, 0.55, 0.7]]) {
+      ctx.lineWidth = lw * u;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.sin(a) * r * len, cy - Math.cos(a) * r * len);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(255,255,255,0.35)";
+    ctx.beginPath();
+    ctx.ellipse(cx - r * 0.3, cy - r * 0.35, r * 0.3, r * 0.15, -0.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function shelfLabel(name) {
+    if (/currently/.test(name)) return "READING";
+    return name.replace(/[-_]+/g, " ").toUpperCase().slice(0, 14);
+  }
+
+  function paintRustic() {
+    plankWall();
+    glow(W * 0.15, H * 0.2, Math.max(W, H) * 0.8, [255, 190, 120], 0.12);
+
+    const shelves = scene.family === "large" ? 2 : 1;
+    const th = 6 * u;
+    const topPad = 6 * u, bottomPad = 16 * u;
+    const slot = (H - topPad - bottomPad) / shelves;
+    const x0 = 0, x1 = W;
+
+    const queue = scene.spines.slice();
+    const covers = scene.covers.slice();
+    const groups = ["spines", "stack", "spines", "cover"];
+    let g = 0;
+
+    for (let s = 0; s < shelves; s++) {
+      const plankY = topPad + (s + 1) * slot;
+      const baseY = plankY - 1 * u;
+      const maxH = baseY - (topPad + s * slot) - (s === 0 ? 4 : 10) * u;
+      const label = s === 0 && covers.length ? cfg.readingShelf : cfg.spineShelf;
+
+      slimShelf(x0, x1, plankY, th);
+
+      let x = 8 * u;
+      let limit = W - 8 * u;
+      const decor = [];
+      const lampH = Math.min(maxH * 0.85, 95 * u);
+      if (cfg.showLamp && s === 0 && scene.family !== "small") {
+        const lx = x + lampH * 0.36;
+        decor.push(() => lamp(lx, baseY, lampH));
+        x += lampH * 0.72 + 6 * u;
+      }
+      const clockR = Math.min(maxH * 0.22, 20 * u);
+      if (cfg.showClock && s === shelves - 1 && scene.family !== "small") {
+        const ccx = limit - clockR * 1.1;
+        decor.push(() => alarmClock(ccx, baseY, clockR));
+        limit -= clockR * 2.4 + 4 * u;
+      }
+
+      if (s === 0) {
+        while (covers.length) {
+          const b = covers[0];
+          const h = maxH * 0.94;
+          const w = h * (b.img ? clamp(b.img.width / b.img.height, 0.6, 0.75) : 0.66);
+          if (x + w > limit) break;
+          covers.shift();
+          cover(x, baseY, w, h, b);
+          const rx = x + w * 0.86;
+          decor.push(() => ribbon(rx, baseY - 3 * u, plankY + th + 5 * u));
+          x += w + 5 * u;
+        }
+      }
+
+      let stalled = 0;
+      while (queue.length && stalled < groups.length) {
+        const kind = groups[g % groups.length];
+        let placed = false;
+        if (kind === "spines") {
+          const n = 4 + (g % 3);
+          for (let i = 0; i < n && queue.length; i++) {
+            const b = queue[0];
+            const r = seeded(b.id + "size");
+            const w = (14 + r() * 5) * u;
+            if (x + w > limit) break;
+            queue.shift();
+            paperSpine(x, baseY, w, maxH * (0.82 + r() * 0.16), b, { style: 0, fullAuthor: true });
+            x += w + 0.4 * u;
+            placed = true;
+          }
+        } else if (kind === "stack") {
+          const n = Math.min(queue.length, scene.family === "small" ? 3 : 4);
+          const sw = Math.min(maxH * 0.95, 92 * u);
+          if (n >= 2 && x + sw + 3 * u <= limit) {
+            bookStack(x + 1 * u, baseY, sw, queue.splice(0, n));
+            x += sw + 6 * u;
+            placed = true;
+          }
+        } else if (queue[0].img) {
+          const b = queue[0];
+          const h = maxH * 0.9;
+          const w = h * clamp(b.img.width / b.img.height, 0.6, 0.75);
+          if (x + w <= limit) {
+            queue.shift();
+            cover(x + 2 * u, baseY, w, h, b);
+            x += w + 6 * u;
+            placed = true;
+          }
+        }
+        g++;
+        stalled = placed ? 0 : stalled + 1;
+        if (placed && kind !== "spines") x += 2 * u;
+      }
+
+      if (cfg.fillEmptySpace && !queue.length) {
+        x += 6 * u;
+        const sw = Math.min(maxH * 0.8, 80 * u);
+        if (limit - x >= sw + 20 * u) {
+          const plain = [0, 1, 2].map(i => ({ id: `plain${s}-${i}`, title: "", author: "" }));
+          bookStack(x, baseY, sw, plain);
+          x += sw + 8 * u;
+        }
+        while (limit - x > 10 * u) {
+          const w = (10 + rng() * 6) * u;
+          if (x + w > limit) break;
+          paperSpine(x, baseY, w, maxH * (0.72 + rng() * 0.2), { id: "rf" + s + x, color: COZY[Math.floor(rng() * COZY.length)] });
+          x += w + 0.4 * u;
+        }
+      }
+
+      decor.forEach(d => d());
+      if (cfg.showLabels !== false) brassPlaque(8 * u, plankY + 1 * u, shelfLabel(label));
+    }
+
+    const v = ctx.createRadialGradient(W / 2, H * 0.45, Math.min(W, H) * 0.35, W / 2, H * 0.5, Math.max(W, H) * 0.85);
+    v.addColorStop(0, "rgba(0,0,0,0)");
+    v.addColorStop(1, "rgba(0,0,0,0.45)");
     ctx.fillStyle = v;
     ctx.fillRect(0, 0, W, H);
   }
@@ -1815,6 +2250,7 @@ function renderLibrary(canvas, scene, makeCanvas) {
   }
 
   if (cfg.theme === "enchanted") paintEnchanted();
+  else if (cfg.theme === "rustic") paintRustic();
   else paintCozy();
 
   if (scene.note) {
