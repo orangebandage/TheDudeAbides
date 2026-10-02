@@ -4,8 +4,7 @@ const book = (id, title, author, hue) => ({ id: String(id), title, author, hue }
 
 const sampleBooks = {
   reading: [
-    book(1, "Fourth Wing (The Empyrean, #1)", "Rebecca Yarros", 28),
-    book(2, "Tomorrow, and Tomorrow, and Tomorrow", "Gabrielle Zevin", 200),
+    book(33131867, "The Risk (Mindf*ck, #1)", "S.T. Abby", 355),
   ],
   favorites: [
     book(10, "Pride and Prejudice", "Jane Austen", 345),
