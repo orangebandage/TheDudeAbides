@@ -16,7 +16,7 @@
 // public shelf RSS feeds (Goodreads no longer offers an API).
 
 const CONFIG = {
-  theme: "rustic",                   // "rustic", "cozy" or "enchanted" (see README)
+  theme: "enchanted",                // "enchanted", "rustic" or "cozy" (see README)
   goodreadsUserId: "183463841",
   readingShelf: "currently-reading", // shown face-out with a ribbon bookmark ("" to skip)
   shelves: [                         // Goodreads shelves to show, top to bottom
@@ -27,12 +27,13 @@ const CONFIG = {
   fillEmptySpace: true,              // pad shelves with untitled antique volumes
   showRose: true,                    // enchanted: the rose under glass
   showCandle: true,                  // enchanted: a lit brass candlestick
+  ornateSpines: "tbr",               // enchanted: tooled spines with author labels: "tbr", "all" or "none"
   showPlant: true,                   // cozy: potted plant and trailing ivy
   showLights: true,                  // cozy: fairy lights under the shelves
   showLeaves: true,                  // cozy: autumn leaves on the shelves
   showLamp: true,                    // rustic: a glowing table lamp
   showClock: true,                   // rustic: a brass alarm clock
-  showLabels: true,                  // rustic: brass shelf labels
+  showLabels: true,                  // rustic, and large enchanted: brass shelf labels
   refreshHours: 3,
 };
 
@@ -650,6 +651,121 @@ function renderLibrary(canvas, scene, makeCanvas) {
     });
     ctx.restore();
     return fs;
+  }
+
+  // A finely tooled leather spine: raised bands, gilt fleurons, and dark
+  // title and author labels framed in gold.
+  function ornateSpine(x, baseY, w, h, color, title, author, key) {
+    const r = seeded(key + "ornate");
+    const y = baseY - h;
+    const radius = [1.8 * u, 1.8 * u, 0.4 * u, 0.4 * u];
+
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.6)";
+    ctx.shadowBlur = 6 * u;
+    ctx.shadowOffsetX = 2.5 * u;
+    ctx.fillStyle = rgba(color);
+    roundRect(x, y, w, h, radius);
+    ctx.fill();
+    ctx.restore();
+    roundRect(x, y, w, h, radius);
+    const g = ctx.createLinearGradient(x, 0, x + w, 0);
+    g.addColorStop(0, "rgba(0,0,0,0.6)");
+    g.addColorStop(0.1, "rgba(0,0,0,0.1)");
+    g.addColorStop(0.3, "rgba(255,235,210,0.22)");
+    g.addColorStop(0.48, "rgba(255,235,210,0.05)");
+    g.addColorStop(0.75, "rgba(0,0,0,0.15)");
+    g.addColorStop(1, "rgba(0,0,0,0.65)");
+    ctx.fillStyle = g;
+    ctx.fill();
+    texture(0.25);
+
+    // Gilt fillets down both edges.
+    ctx.fillStyle = gold(x, y, x, y + h, 0.7);
+    ctx.fillRect(x + 1.3 * u, y + h * 0.03, 0.4 * u, h * 0.94);
+    ctx.fillRect(x + w - 1.7 * u, y + h * 0.03, 0.4 * u, h * 0.94);
+
+    // Raised bands dividing the spine into compartments.
+    const bands = [0.075, 0.155, 0.6, 0.67, 0.875, 0.945];
+    for (const t of bands) {
+      const by = y + h * t;
+      const bg = ctx.createLinearGradient(0, by - 1.6 * u, 0, by + 1.6 * u);
+      bg.addColorStop(0, "rgba(255,235,210,0.25)");
+      bg.addColorStop(0.5, rgba(mix(color, [255, 230, 200], 0.15)));
+      bg.addColorStop(1, "rgba(0,0,0,0.5)");
+      ctx.fillStyle = bg;
+      ctx.fillRect(x + 0.4 * u, by - 1.6 * u, w - 0.8 * u, 3.2 * u);
+      ctx.fillStyle = gold(x, by, x + w, by);
+      ctx.fillRect(x + 0.6 * u, by - 1.9 * u, w - 1.2 * u, 0.45 * u);
+      ctx.fillRect(x + 0.6 * u, by + 1.5 * u, w - 1.2 * u, 0.45 * u);
+      // Dotted gilt roll along the band.
+      ctx.fillStyle = gold(x, by - u, x, by + u, 0.85);
+      for (let dx = x + 2 * u; dx < x + w - 1.5 * u; dx += 1.6 * u) {
+        ctx.beginPath();
+        ctx.arc(dx, by, 0.35 * u, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Fleurons in the small compartments.
+    const fleuron = (cy, size) => {
+      const cx = x + w / 2;
+      ctx.fillStyle = gold(cx - size, cy - size, cx + size, cy + size);
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+        ctx.beginPath();
+        ctx.ellipse(cx + Math.cos(a) * size * 0.5, cy + Math.sin(a) * size * 0.5, size * 0.42, size * 0.2, a, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+        ctx.beginPath();
+        ctx.arc(cx + dx * size * 0.95, cy + dy * size * 0.95, size * 0.14, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.beginPath();
+      ctx.arc(cx, cy, size * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    const fs = Math.min(w * 0.22, 3.6 * u, h * 0.025);
+    fleuron(y + h * 0.04, Math.min(fs, h * 0.02));
+    fleuron(y + h * 0.635, fs);
+    fleuron(y + h * 0.91, fs);
+
+    // Title and author labels.
+    const label = (t0, t1, dark) => {
+      const lx = x + 2.2 * u, lw = w - 4.4 * u;
+      ctx.fillStyle = rgba(mix(color, dark, 0.65));
+      ctx.fillRect(lx, t0, lw, t1 - t0);
+      const lg = ctx.createLinearGradient(lx, 0, lx + lw, 0);
+      lg.addColorStop(0, "rgba(0,0,0,0.35)");
+      lg.addColorStop(0.35, "rgba(255,240,220,0.08)");
+      lg.addColorStop(1, "rgba(0,0,0,0.4)");
+      ctx.fillStyle = lg;
+      ctx.fillRect(lx, t0, lw, t1 - t0);
+      ctx.strokeStyle = gold(lx, t0, lx + lw, t1);
+      ctx.lineWidth = 0.5 * u;
+      ctx.strokeRect(lx + 0.7 * u, t0 + 0.7 * u, lw - 1.4 * u, t1 - t0 - 1.4 * u);
+      ctx.lineWidth = 0.25 * u;
+      ctx.strokeRect(lx + 1.4 * u, t0 + 1.4 * u, lw - 2.8 * u, t1 - t0 - 2.8 * u);
+    };
+    const tTop = y + h * 0.175, tBot = y + h * 0.58;
+    const aTop = y + h * 0.69, aBot = y + h * 0.855;
+    const darkA = r() < 0.5 ? [12, 6, 3] : [70, 10, 18];
+    label(tTop, tBot, darkA);
+    label(aTop, aBot, [12, 6, 3]);
+
+    spineText(x, w, tTop + 1.5 * u, tBot - 1.5 * u, shortTitle(title), {
+      font: "700 {fs}px " + FONT_SPINE, maxFs: Math.min(w * 0.36, 9.5 * u), minOneLine: 5.5 * u,
+      fill: (ly, f) => gold(0, ly - f / 2, 0, ly + f / 2), shadow: "rgba(0,0,0,0.8)",
+    });
+    if (author) {
+      const last = author.split(" ").pop();
+      spineText(x, w, aTop + 1 * u, aBot - 1 * u, last, {
+        font: "italic 600 {fs}px " + FONT_ITALIC, maxFs: Math.min(w * 0.42, 9 * u),
+        minOneLine: 4 * u, minFs: 4 * u, singleLine: true,
+        fill: (ly, f) => gold(0, ly - f / 2, 0, ly + f / 2), shadow: "rgba(0,0,0,0.8)",
+      });
+    }
   }
 
   function spine(x, baseY, w, h, color, title, key, muted) {
@@ -2229,10 +2345,13 @@ function renderLibrary(canvas, scene, makeCanvas) {
     while (spines.length) {
       const b = spines[0];
       const r = seeded(b.id + "size");
-      const w = (15 + r() * 7) * u;
+      const ornate = cfg.ornateSpines === "all" || (cfg.ornateSpines === "tbr" && s > 0);
+      const w = (ornate ? 19 + r() * 6 : 15 + r() * 7) * u;
       if (x + w > limit) break;
       spines.shift();
-      spine(x, baseY, w, maxH * (0.84 + r() * 0.15), b.color, b.title, b.id, false);
+      const sh = maxH * (0.84 + r() * 0.15);
+      if (ornate) ornateSpine(x, baseY, w, sh, b.color, b.title, b.author, b.id);
+      else spine(x, baseY, w, sh, b.color, b.title, b.id, false);
       x += w + 0.4 * u;
     }
 
@@ -2259,6 +2378,8 @@ function renderLibrary(canvas, scene, makeCanvas) {
 
     decor.forEach(d => d());
     plankFront(plankY);
+    const shelfName = L.shelves > 1 && scene.groups[s] ? scene.groups[s].label : "";
+    if (cfg.showLabels !== false && shelfName) brassPlaque(W / 2 - 18 * u, plankY - 1.2 * u, shelfName.toUpperCase());
     for (const rx of ribbons.splice(0)) ribbon(rx, baseY - 3 * u, plankY + plank + 5 * u);
   }
 

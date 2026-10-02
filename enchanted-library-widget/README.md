@@ -3,8 +3,8 @@
 An iPhone home-screen widget for the [Scriptable](https://scriptable.app) app that shows your Goodreads books on a bookshelf. It comes in three looks:
 
 - **Cozy**: floating wooden shelves on a cream cable-knit background, with fairy lights, autumn leaves, a potted plant and trailing ivy. Your books mix face-out covers with spines made from each cover's colors.
-- **Rustic** (the default): a weathered wood-plank wall with slim shelves, brass shelf labels, a glowing table lamp and a brass alarm clock. Books stand as spines with the title and author, and each shelf has a brass label.
-- **Enchanted**: a candle-lit, dark-wood library inspired by the Beast's library in *Beauty and the Beast*, with an arched gilded bookcase, leather-bound spines, a brass candlestick and the rose under glass.
+- **Rustic**: a weathered wood-plank wall with slim shelves, brass shelf labels, a glowing table lamp and a brass alarm clock. Books stand as spines with the title and author, and each shelf has a brass label.
+- **Enchanted** (the default): a candle-lit, dark-wood library inspired by the Beast's library in *Beauty and the Beast*, with an arched gilded bookcase, leather-bound spines, a brass candlestick and the rose under glass. On the large widget, the TBR shelf uses finely tooled spines with gilt fleurons and separate title and author labels.
 
 Either way:
 
@@ -19,7 +19,7 @@ Either way:
 
 Cozy look: ![cozy](previews/preview-cozy-medium.png)
 
-Enchanted look: ![enchanted](previews/preview-enchanted-medium.png)
+Rustic look: ![rustic](previews/preview-rustic-medium.png)
 
 *(The previews use stand-in covers. On your phone you'll see your real cover art.)*
 
@@ -41,15 +41,17 @@ Edit the `CONFIG` block at the top of the script:
 
 | Setting | What it does |
 |---|---|
-| `theme` | `"rustic"`, `"cozy"` or `"enchanted"` |
+| `theme` | `"enchanted"`, `"rustic"` or `"cozy"` |
 | `goodreadsUserId` | The number in your profile URL (`183463841`) |
 | `readingShelf` | Shelf shown face-out with ribbons, at the front of the top shelf (`currently-reading`; `""` to skip) |
 | `shelves` | Shelves to show, top to bottom, each with the label shown on its brass plaque in the rustic look (`read` labeled "Read", then `to-read` labeled "TBR"). Large widgets show one shelf of books per entry; small and medium show only the first. |
 | `libraryName` | Enchanted only: script lettering on the large widget's crown (`"My Library"`) |
 | `fillEmptySpace` | `false` leaves empty shelf space instead of antique filler books |
 | `showRose`, `showCandle` | Enchanted only: `false` hides the rose or the candlestick |
+| `ornateSpines` | Enchanted only: which shelves get the tooled spines with author labels: `"tbr"` (the second shelf), `"all"` or `"none"` |
 | `showPlant`, `showLights`, `showLeaves` | Cozy only: `false` hides the plant and ivy, the fairy lights, or the autumn leaves |
-| `showLamp`, `showClock`, `showLabels` | Rustic only: `false` hides the lamp, the clock, or the brass shelf labels |
+| `showLamp`, `showClock` | Rustic only: `false` hides the lamp or the clock |
+| `showLabels` | `false` hides the brass shelf labels (rustic, and the large enchanted widget) |
 | `refreshHours` | How often to ask iOS for a refresh |
 
 To force a re-download (for example, after you change a cover on Goodreads), run the script in Scriptable and pick **Clear cache & refresh**.
@@ -73,7 +75,7 @@ Scriptable's built-in drawing tools can't do gradients, soft shadows or sideways
 ```sh
 npm install @napi-rs/canvas
 node tools/preview.js path/to/fonts   # writes previews/*.png
-THEME=rustic node tools/preview.js path/to/fonts out/   # or THEME=enchanted
+THEME=rustic node tools/preview.js path/to/fonts out/   # or THEME=cozy
 ```
 
 The fonts folder should hold the Cinzel, Cormorant Garamond, Oswald and Pinyon Script `.ttf` files from Google Fonts. Set `COVERS_DIR` to a folder of cover images named `<book id>.jpg` to preview with real covers.
