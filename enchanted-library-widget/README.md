@@ -9,7 +9,8 @@ An iPhone home-screen widget for the [Scriptable](https://scriptable.app) app th
 Either way:
 
 - **Currently reading:** cover facing out, with a red ribbon bookmark
-- **Your other shelf** (`favorites` by default): spines with the title and author, mixed with face-out covers (and stacks, in the rustic look)
+- **Read:** your most recently finished books, as spines with the title and author, mixed with face-out covers (and stacks, in the rustic look)
+- **To-read (TBR):** a second shelf of books on the large widget. Small and medium widgets show only Read.
 - Leftover space fills with a stack of books and some untitled volumes
 
 | Small | Medium | Large |
@@ -25,7 +26,7 @@ Enchanted look: ![enchanted](previews/preview-enchanted-medium.png)
 ## Install on your iPhone
 
 1. **Make your Goodreads shelves public.** Goodreads retired its API, so the widget reads your shelves' public RSS feeds. In the Goodreads app or website, go to *Settings → Privacy* and set **Who can view my profile** to *anyone* (or *anyone including search engines*).
-2. **Check your favorites shelf name.** The widget reads the shelf named `favorites`. If yours is named something else (e.g. `all-time-favorites`), change `spineShelf` near the top of the script.
+2. **Check your shelves.** The widget reads your `currently-reading`, `read` and `to-read` shelves, which every Goodreads account has. To show a different shelf, such as your own `favorites` shelf, change `shelves` near the top of the script.
 3. Install **Scriptable** (free) from the App Store.
 4. Copy the entire contents of [`EnchantedLibrary.js`](EnchantedLibrary.js). Open Scriptable, tap **+**, paste, and rename the script to *Enchanted Library* by tapping the title.
 5. Tap ▶︎ to try it. Pick a size to preview. The first run downloads your covers.
@@ -42,8 +43,8 @@ Edit the `CONFIG` block at the top of the script:
 |---|---|
 | `theme` | `"cozy"`, `"rustic"` or `"enchanted"` |
 | `goodreadsUserId` | The number in your profile URL (`183463841`) |
-| `readingShelf` | Shelf shown face-out with ribbons (`currently-reading`) |
-| `spineShelf` | Shelf shown as spines (`favorites`) |
+| `readingShelf` | Shelf shown face-out with ribbons, at the front of the top shelf (`currently-reading`; `""` to skip) |
+| `shelves` | Shelves to show, top to bottom, each with the label shown on its brass plaque in the rustic look (`read` labeled "Read", then `to-read` labeled "TBR"). Large widgets show one shelf of books per entry; small and medium show only the first. |
 | `libraryName` | Enchanted only: script lettering on the large widget's crown (`"My Library"`) |
 | `fillEmptySpace` | `false` leaves empty shelf space instead of antique filler books |
 | `showRose`, `showCandle` | Enchanted only: `false` hides the rose or the candlestick |
@@ -55,8 +56,8 @@ To force a re-download (for example, after you change a cover on Goodreads), run
 
 ## Troubleshooting
 
-- **"Couldn't reach Goodreads. Is your profile public?"** Make your profile public (step 1). Also check that `https://www.goodreads.com/review/list_rss/183463841?shelf=favorites` opens in Safari.
-- **No spines:** the `favorites` shelf is empty or has a different name (step 2).
+- **"Couldn't reach Goodreads. Is your profile public?"** Make your profile public (step 1). Also check that `https://www.goodreads.com/review/list_rss/183463841?shelf=read` opens in Safari.
+- **No spines:** the shelves named in `shelves` are empty or named differently (step 2).
 - **"Open Scriptable and run Enchanted Library once":** the widget couldn't paint the scene itself and had no saved picture yet. Run the script once in the Scriptable app. That saves pictures of every size for the widget to fall back on.
 - **Plain-looking lettering:** the fonts (Cinzel, Cormorant Garamond, Oswald, Pinyon Script) load from Google Fonts. Without internet access the widget uses the iPhone's built-in fonts instead.
 - **Lock screen:** the script also works as a lock-screen widget. It shows the title of the book you're reading as text.

@@ -30,7 +30,7 @@ const CONFIG = {
   theme: process.env.THEME || "cozy", libraryName: "My Library", fillEmptySpace: true,
   showRose: true, showCandle: true, showPlant: true, showLights: true, showLeaves: true,
   showLamp: true, showClock: true, showLabels: true,
-  readingShelf: "currently-reading", spineShelf: "favorites",
+  readingShelf: "currently-reading",
 };
 
 function stubCover(book, i) {
@@ -74,11 +74,15 @@ function render(family, outDir, note) {
   const canvas = createCanvas(width * scale, height * scale);
   const reading = note ? [] : sampleBooks.reading.map((b, i) => ({ ...b, img: covers[b.id] || stubCover(b, i) }));
   const max = { small: 1, medium: 2, large: 3 }[family];
-  const favs = note ? [] : sampleBooks.favorites.map((b, i) => ({ ...b, img: covers[b.id] || stubCover(b, i) }));
+  const withImg = books => (note ? [] : books.map((b, i) => ({ ...b, img: covers[b.id] || stubCover(b, i) })));
+  const groups = [
+    { label: "Read", books: reading.slice(max).concat(withImg(sampleBooks.read)) },
+    { label: "TBR", books: withImg(sampleBooks.toRead) },
+  ].slice(0, family === "large" ? 2 : 1);
   const scene = {
     family, width, height, scale, config: CONFIG, note: note || "",
     covers: reading.slice(0, max),
-    spines: reading.slice(max).concat(favs),
+    groups,
   };
   renderLibrary(canvas, scene, (w, h) => createCanvas(w, h));
   const out = path.join(outDir, `preview-${family}${note ? "-error" : ""}.png`);

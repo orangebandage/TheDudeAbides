@@ -6,7 +6,7 @@ const sampleBooks = {
   reading: [
     book(33131867, "The Risk (Mindf*ck, #1)", "S.T. Abby", 355),
   ],
-  favorites: [
+  read: [
     book("r1", "Love, Theoretically", "Ali Hazelwood", 40),
     book("r2", "Book Lovers", "Emily Henry", 195),
     book("r3", "People We Meet on Vacation", "Emily Henry", 20),
@@ -20,6 +20,17 @@ const sampleBooks = {
     book("r11", "Game On (Into Darkness, #3)", "Navessa Allen", 120),
     book("r12", "Empire of Storms (Throne of Glass, #5)", "Sarah J. Maas", 290),
     book("r13", "I'd Like to Play Alone, Please: Essays", "Tom Segura", 100),
+  ],
+  // Placeholder to-read shelf.
+  toRead: [
+    book("t1", "Fourth Wing (The Empyrean, #1)", "Rebecca Yarros", 28),
+    book("t2", "Funny Story", "Emily Henry", 50),
+    book("t3", "Twisted Love (Twisted, #1)", "Ana Huang", 210),
+    book("t4", "Iron Flame (The Empyrean, #2)", "Rebecca Yarros", 35),
+    book("t5", "A Court of Thorns and Roses", "Sarah J. Maas", 0),
+    book("t6", "Heart the Lover", "Lily King", 25),
+    book("t7", "The Housemaid", "Freida McFadden", 230),
+    book("t8", "Haunting Adeline", "H.D. Carlton", 260),
   ],
 };
 

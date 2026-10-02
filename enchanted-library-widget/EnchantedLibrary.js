@@ -18,8 +18,11 @@
 const CONFIG = {
   theme: "cozy",                     // "cozy", "rustic" or "enchanted" (see README)
   goodreadsUserId: "183463841",
-  readingShelf: "currently-reading", // shown face-out with a ribbon bookmark
-  spineShelf: "favorites",           // shown as spines
+  readingShelf: "currently-reading", // shown face-out with a ribbon bookmark ("" to skip)
+  shelves: [                         // Goodreads shelves to show, top to bottom
+    { shelf: "read", label: "Read" },    // newest first; the only shelf on small/medium widgets
+    { shelf: "to-read", label: "TBR" },  // the large widget's second shelf
+  ],
   libraryName: "My Library",         // enchanted: script lettering on the large widget ("" to hide)
   fillEmptySpace: true,              // pad shelves with untitled antique volumes
   showRose: true,                    // enchanted: the rose under glass
@@ -98,16 +101,18 @@ async function loadLibrary() {
     try { cached = JSON.parse(FM.readString(cachePath)); } catch (e) { cached = null; }
   }
   try {
-    const [reading, spines] = await Promise.all([
-      fetchShelf(CONFIG.readingShelf),
-      fetchShelf(CONFIG.spineShelf),
+    const [reading, ...groups] = await Promise.all([
+      CONFIG.readingShelf ? fetchShelf(CONFIG.readingShelf) : [],
+      ...CONFIG.shelves.map(s => fetchShelf(s.shelf)),
     ]);
-    const data = { reading, spines, fetchedAt: Date.now() };
+    const data = { reading, groups, fetchedAt: Date.now() };
     FM.writeString(cachePath, JSON.stringify(data));
     return data;
   } catch (e) {
-    if (cached) return Object.assign(cached, { stale: true });
-    return { reading: [], spines: [], error: String((e && e.message) || e) };
+    if (cached && cached.groups && cached.groups.length === CONFIG.shelves.length) {
+      return Object.assign(cached, { stale: true });
+    }
+    return { reading: [], groups: CONFIG.shelves.map(() => []), error: String((e && e.message) || e) };
   }
 }
 
@@ -137,11 +142,12 @@ function parseFeed(xml) {
         author: get("author_name"),
         cover: bestCoverUrl(large),
         thumb: /nophoto/i.test(small) ? null : small || null,
-        added: Date.parse(get("user_date_added")) || 0,
+        // Most recently finished first (read shelf), else most recently added.
+        when: Date.parse(get("user_read_at")) || Date.parse(get("user_date_added")) || 0,
       };
     })
     .filter(b => b.title)
-    .sort((a, b) => b.added - a.added);
+    .sort((a, b) => b.when - a.when);
 }
 
 function xmlText(block, name) {
@@ -187,10 +193,10 @@ async function imageDataUrl(url, key) {
 
 function buildAccessoryWidget(family, library) {
   const w = new ListWidget();
-  const book = library.reading[0] || library.spines[0];
+  const book = library.reading[0] || (library.groups[0] || [])[0];
   const title = book ? book.title.replace(/\s*\([^)]*#[^)]*\)\s*$/, "") : "No books yet";
   if (family === "accessoryRectangular") {
-    const head = w.addText(library.reading[0] ? "NOW READING" : "FAVORITE");
+    const head = w.addText(library.reading[0] ? "NOW READING" : "LAST READ");
     head.font = Font.semiboldSystemFont(10);
     const t = w.addText(title);
     t.font = Font.boldSystemFont(14);
@@ -232,7 +238,13 @@ async function buildWidget(family, library) {
   const unique = books => books.filter(b => !seen.has(b.id) && seen.add(b.id));
   const reading = unique(library.reading);
   const faceOut = reading.slice(0, maxCovers);
-  const spineBooks = reading.slice(maxCovers).concat(unique(library.spines)).slice(0, 30);
+  // Large widgets get one physical shelf per Goodreads shelf; smaller ones
+  // show just the first.
+  const shown = family === "large" ? CONFIG.shelves.length : 1;
+  const groups = CONFIG.shelves.slice(0, shown).map((s, i) => ({
+    label: s.label,
+    books: (i === 0 ? reading.slice(maxCovers) : []).concat(unique(library.groups[i] || [])).slice(0, 20),
+  }));
 
   const scene = {
     family,
@@ -240,18 +252,22 @@ async function buildWidget(family, library) {
     height: size.height,
     scale: Math.min(3, Device.screenScale()),
     config: CONFIG,
-    note: noteFor(library, faceOut, spineBooks),
+    note: noteFor(library, faceOut, groups),
     covers: [],
-    spines: [],
+    groups: [],
   };
   for (const b of faceOut) {
     scene.covers.push({ id: b.id, title: b.title, author: b.author, src: await imageDataUrl(b.cover, `cover-${b.id}`) });
   }
-  for (const b of spineBooks) {
-    const src = CONFIG.theme === "enchanted"
-      ? await imageDataUrl(b.thumb, `thumb-${b.id}`)
-      : await imageDataUrl(b.cover || b.thumb, `cover-${b.id}`);
-    scene.spines.push({ id: b.id, title: b.title, author: b.author, src });
+  for (const g of groups) {
+    const books = [];
+    for (const b of g.books) {
+      const src = CONFIG.theme === "enchanted"
+        ? await imageDataUrl(b.thumb, `thumb-${b.id}`)
+        : await imageDataUrl(b.cover || b.thumb, `cover-${b.id}`);
+      books.push({ id: b.id, title: b.title, author: b.author, src });
+    }
+    scene.groups.push({ label: g.label, books });
   }
 
   const renderPath = FM.joinPath(CACHE_DIR, `render-${family}.png`);
@@ -277,10 +293,10 @@ async function buildWidget(family, library) {
   return w;
 }
 
-function noteFor(library, covers, spines) {
-  if (covers.length || spines.length) return "";
+function noteFor(library, covers, groups) {
+  if (covers.length || groups.some(g => g.books.length)) return "";
   if (library.error) return "Couldn’t reach Goodreads.\nIs your profile public?";
-  return `No books on “${CONFIG.readingShelf}”\nor “${CONFIG.spineShelf}” yet.`;
+  return `No books on your\n${CONFIG.shelves.map(s => `“${s.shelf}”`).join(" or ")} shelf yet.`;
 }
 
 // Paints the scene in a WebView canvas (Scriptable's own drawing API can't do
@@ -308,7 +324,8 @@ async function paint(scene) {
           img.onerror = () => res(null);
           img.src = src;
         });
-        for (const b of scene.covers.concat(scene.spines)) b.img = await load(b.src);
+        const all = scene.covers.concat(...scene.groups.map(g => g.books));
+        for (const b of all) b.img = await load(b.src);
         const canvas = document.getElementById("c");
         canvas.width = Math.round(scene.width * scene.scale);
         canvas.height = Math.round(scene.height * scene.scale);
@@ -1648,8 +1665,8 @@ function renderLibrary(canvas, scene, makeCanvas) {
     const slot = (H - topPad - bottomPad) / shelves;
     const x0 = (scene.family === "small" ? 7 : 10) * u, x1 = W - x0;
 
-    const seq = scene.covers.map(b => ({ kind: "cover", b, ribbon: true }));
-    scene.spines.forEach((b, i) => seq.push({ kind: b.img && i % 4 === 2 ? "cover" : "spine", b }));
+    const arrange = books => books.map((b, i) => ({ kind: b.img && i % 4 === 2 ? "cover" : "spine", b }));
+    let seq = [];
 
     const after = [];
     for (let s = 0; s < shelves; s++) {
@@ -1657,6 +1674,8 @@ function renderLibrary(canvas, scene, makeCanvas) {
       const plankY = slotTop + slot;
       const baseY = plankY - 0.8 * u;
       const maxH = baseY - slotTop - (s === 0 ? 4 : 12) * u;
+      if (s < scene.groups.length) seq = arrange(scene.groups[s].books);
+      if (s === 0) seq = scene.covers.map(b => ({ kind: "cover", b, ribbon: true })).concat(seq);
 
       shelfTop(x0, x1, plankY);
 
@@ -2038,7 +2057,7 @@ function renderLibrary(canvas, scene, makeCanvas) {
     const slot = (H - topPad - bottomPad) / shelves;
     const x0 = 0, x1 = W;
 
-    const queue = scene.spines.slice();
+    let queue = [];
     const covers = scene.covers.slice();
     const groups = ["spines", "stack", "spines", "cover"];
     let g = 0;
@@ -2047,7 +2066,8 @@ function renderLibrary(canvas, scene, makeCanvas) {
       const plankY = topPad + (s + 1) * slot;
       const baseY = plankY - 1 * u;
       const maxH = baseY - (topPad + s * slot) - (s === 0 ? 4 : 10) * u;
-      const label = s === 0 && covers.length ? cfg.readingShelf : cfg.spineShelf;
+      if (s < scene.groups.length) queue = scene.groups[s].books.slice();
+      const label = scene.groups.length ? scene.groups[Math.min(s, scene.groups.length - 1)].label : "";
 
       slimShelf(x0, x1, plankY, th);
 
@@ -2138,7 +2158,7 @@ function renderLibrary(canvas, scene, makeCanvas) {
       }
 
       decor.forEach(d => d());
-      if (cfg.showLabels !== false) brassPlaque(8 * u, plankY + 1 * u, shelfLabel(label));
+      if (cfg.showLabels !== false && label) brassPlaque(8 * u, plankY + 1 * u, shelfLabel(label));
     }
 
     const v = ctx.createRadialGradient(W / 2, H * 0.45, Math.min(W, H) * 0.35, W / 2, H * 0.5, Math.max(W, H) * 0.85);
@@ -2153,7 +2173,7 @@ function renderLibrary(canvas, scene, makeCanvas) {
   backWall();
 
   const covers = scene.covers.slice();
-  const spines = scene.spines.map(b => ({ ...b, color: leatherFrom(b.img, b.id + b.title) }));
+  let spines = [];
   const ribbons = [];
   const lastShelf = L.shelves - 1;
 
@@ -2162,6 +2182,9 @@ function renderLibrary(canvas, scene, makeCanvas) {
     const plankY = slotTop + slotH - plank;
     const baseY = plankY - 1 * u;
     const maxH = baseY - slotTop - 7 * u;
+    if (s < scene.groups.length) {
+      spines = scene.groups[s].books.map(b => ({ ...b, color: leatherFrom(b.img, b.id + b.title) }));
+    }
 
     // Shadow under the shelf above (or the crown).
     const sg = ctx.createLinearGradient(0, slotTop, 0, slotTop + 18 * u);
