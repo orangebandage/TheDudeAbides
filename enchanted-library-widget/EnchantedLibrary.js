@@ -402,7 +402,7 @@ function renderLibrary(canvas, scene, makeCanvas) {
           tr += d[i] * wgt; tg += d[i + 1] * wgt; tb += d[i + 2] * wgt; tw += wgt;
         }
         const [h, s] = rgb2hsl([tr / tw, tg / tw, tb / tw]);
-        if (s > 0.12) base = hsl2rgb(h, clamp(s * 0.85, 0.3, 0.62), 0.2 + r() * 0.12);
+        if (s > 0.12) base = hsl2rgb(h, clamp(s * 0.9, 0.35, 0.72), 0.25 + r() * 0.1);
       } catch (e) { /* keep palette color */ }
     }
     return base;
@@ -624,22 +624,42 @@ function renderLibrary(canvas, scene, makeCanvas) {
       ctx.strokeRect(lx + 0.8 * u, t0 + 0.8 * u, lw - 1.6 * u, t1 - t0 - 1.6 * u);
     }
 
-    // Gilt title, running down the spine.
+    // Gilt title, running down the spine. Long titles wrap onto two lines
+    // when the spine is wide enough; otherwise they shrink, then truncate.
     const room = (t1 - t0) - 6 * u;
-    let text = shortTitle(title);
+    const text = shortTitle(title);
+    const setFont = size => { ctx.font = `700 ${size}px ${FONT_SPINE}`; };
+    const fits = (lines, size) => {
+      setFont(size);
+      return lines.every(l => ctx.measureText(l).width <= room);
+    };
+    let lines = [text];
     let fs = Math.min(w * 0.44, 10.5 * u);
-    ctx.font = `700 ${fs}px ${FONT_SPINE}`;
-    while (ctx.measureText(text).width > room && fs > 6 * u) {
-      fs -= 0.25 * u;
-      ctx.font = `700 ${fs}px ${FONT_SPINE}`;
-    }
-    if (ctx.measureText(text).width > room) {
+    while (!fits(lines, fs) && fs > 7.5 * u) fs -= 0.25 * u;
+    if (!fits(lines, fs) && text.includes(" ")) {
       const words = text.split(" ");
-      while (words.length > 1 && ctx.measureText(words.join(" ") + "…").width > room) words.pop();
-      text = words.join(" ");
-      while (text.length > 1 && ctx.measureText(text + "…").width > room) text = text.slice(0, -1);
-      text += "…";
+      let best = null;
+      for (let i = 1; i < words.length; i++) {
+        const pair = [words.slice(0, i).join(" "), words.slice(i).join(" ")];
+        setFont(10);
+        const longest = Math.max(...pair.map(l => ctx.measureText(l).width));
+        if (!best || longest < best.longest) best = { pair, longest };
+      }
+      lines = best.pair;
+      fs = Math.min(w * 0.3, 9 * u);
+      while (!fits(lines, fs) && fs > 5.5 * u) fs -= 0.25 * u;
+    } else {
+      while (!fits(lines, fs) && fs > 6 * u) fs -= 0.25 * u;
     }
+    setFont(fs);
+    lines = lines.map(line => {
+      if (ctx.measureText(line).width <= room) return line;
+      const words = line.split(" ");
+      while (words.length > 1 && ctx.measureText(words.join(" ") + "…").width > room) words.pop();
+      let t = words.join(" ");
+      while (t.length > 1 && ctx.measureText(t + "…").width > room) t = t.slice(0, -1);
+      return t + "…";
+    });
     ctx.save();
     ctx.translate(x + w / 2 + fs * 0.04, (t0 + t1) / 2);
     ctx.rotate(Math.PI / 2);
@@ -648,8 +668,14 @@ function renderLibrary(canvas, scene, makeCanvas) {
     ctx.shadowColor = "rgba(0,0,0,0.75)";
     ctx.shadowBlur = 1.2 * u;
     ctx.shadowOffsetY = -0.6 * u;
-    ctx.fillStyle = gold(0, -fs / 2, 0, fs / 2);
-    ctx.fillText(text, 0, 0);
+    const lh = fs * 1.12;
+    lines.forEach((line, i) => {
+      // Rotated 90° clockwise: the first line sits on the right, where a
+      // reader tilting their head to the right sees the top of the text.
+      const ly = ((lines.length - 1) / 2 - i) * lh;
+      ctx.fillStyle = gold(0, ly - fs / 2, 0, ly + fs / 2);
+      ctx.fillText(line, 0, ly);
+    });
     ctx.restore();
   }
 
