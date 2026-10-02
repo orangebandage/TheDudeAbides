@@ -16,13 +16,17 @@
 // public shelf RSS feeds (Goodreads no longer offers an API).
 
 const CONFIG = {
+  theme: "cozy",                     // "cozy" (knit + fairy lights) or "enchanted" (Beast's library)
   goodreadsUserId: "183463841",
   readingShelf: "currently-reading", // shown face-out with a ribbon bookmark
   spineShelf: "favorites",           // shown as spines
-  libraryName: "My Library",         // script lettering on the large widget ("" to hide)
+  libraryName: "My Library",         // enchanted: script lettering on the large widget ("" to hide)
   fillEmptySpace: true,              // pad shelves with untitled antique volumes
-  showRose: true,                    // the enchanted rose under glass
-  showCandle: true,                  // a lit brass candlestick
+  showRose: true,                    // enchanted: the rose under glass
+  showCandle: true,                  // enchanted: a lit brass candlestick
+  showPlant: true,                   // cozy: potted plant and trailing ivy
+  showLights: true,                  // cozy: fairy lights under the shelves
+  showLeaves: true,                  // cozy: autumn leaves on the shelves
   refreshHours: 3,
 };
 
@@ -35,7 +39,7 @@ if (!FM.fileExists(CACHE_DIR)) FM.createDirectory(CACHE_DIR, true);
 
 const PROFILE_URL = `https://www.goodreads.com/user/show/${CONFIG.goodreadsUserId}`;
 const FONT_CSS = "https://fonts.googleapis.com/css2?family=Cinzel:wght@700"
-  + "&family=Cormorant+Garamond:ital,wght@1,600&family=Pinyon+Script&display=block";
+  + "&family=Cormorant+Garamond:ital,wght@1,600&family=Oswald:wght@600&family=Pinyon+Script&display=block";
 
 async function main() {
   let family = config.widgetFamily || "medium";
@@ -225,7 +229,7 @@ async function buildWidget(family, library) {
   const unique = books => books.filter(b => !seen.has(b.id) && seen.add(b.id));
   const reading = unique(library.reading);
   const faceOut = reading.slice(0, maxCovers);
-  const spineBooks = reading.slice(maxCovers).concat(unique(library.spines)).slice(0, 40);
+  const spineBooks = reading.slice(maxCovers).concat(unique(library.spines)).slice(0, 30);
 
   const scene = {
     family,
@@ -241,7 +245,10 @@ async function buildWidget(family, library) {
     scene.covers.push({ id: b.id, title: b.title, author: b.author, src: await imageDataUrl(b.cover, `cover-${b.id}`) });
   }
   for (const b of spineBooks) {
-    scene.spines.push({ id: b.id, title: b.title, author: b.author, src: await imageDataUrl(b.thumb, `thumb-${b.id}`) });
+    const src = CONFIG.theme === "enchanted"
+      ? await imageDataUrl(b.thumb, `thumb-${b.id}`)
+      : await imageDataUrl(b.cover || b.thumb, `cover-${b.id}`);
+    scene.spines.push({ id: b.id, title: b.title, author: b.author, src });
   }
 
   const renderPath = FM.joinPath(CACHE_DIR, `render-${family}.png`);
@@ -286,7 +293,7 @@ async function paint(scene) {
     (async () => {
       try {
         const scene = ${JSON.stringify(scene)};
-        const fonts = ["700 20px Cinzel", "italic 600 20px 'Cormorant Garamond'", "20px 'Pinyon Script'"];
+        const fonts = ["700 20px Cinzel", "italic 600 20px 'Cormorant Garamond'", "600 20px Oswald", "20px 'Pinyon Script'"];
         await Promise.race([
           Promise.all(fonts.map(f => document.fonts.load(f))),
           new Promise(r => setTimeout(r, 4000)),
@@ -385,25 +392,34 @@ function renderLibrary(canvas, scene, makeCanvas) {
   const LEATHER = ["#6b1a1f", "#7a2030", "#1f4a35", "#2c5530", "#1d2c4f", "#2b3a6b",
     "#4a2545", "#7a4220", "#8a6232", "#5a3520", "#1f4f52", "#7c6222", "#2a201c"].map(hex);
 
-  // A cover's dominant (saturation-weighted) color, turned into rich leather.
+  // A cover's dominant color, weighting saturated mid-tones most.
+  function dominantColor(img) {
+    if (!img) return null;
+    try {
+      const c = makeCanvas(12, 18);
+      const x = c.getContext("2d");
+      x.drawImage(img, 0, 0, 12, 18);
+      const d = x.getImageData(0, 0, 12, 18).data;
+      let tr = 0, tg = 0, tb = 0, tw = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        const [, s, l] = rgb2hsl([d[i], d[i + 1], d[i + 2]]);
+        const wgt = 0.05 + s * (1 - Math.abs(l - 0.5) * 1.6);
+        tr += d[i] * wgt; tg += d[i + 1] * wgt; tb += d[i + 2] * wgt; tw += wgt;
+      }
+      return [tr / tw, tg / tw, tb / tw];
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // The dominant color turned into rich leather.
   function leatherFrom(img, key) {
     const r = seeded(key);
     let base = LEATHER[Math.floor(r() * LEATHER.length)];
-    if (img) {
-      try {
-        const c = makeCanvas(12, 18);
-        const x = c.getContext("2d");
-        x.drawImage(img, 0, 0, 12, 18);
-        const d = x.getImageData(0, 0, 12, 18).data;
-        let tr = 0, tg = 0, tb = 0, tw = 0;
-        for (let i = 0; i < d.length; i += 4) {
-          const [, s, l] = rgb2hsl([d[i], d[i + 1], d[i + 2]]);
-          const wgt = 0.05 + s * (1 - Math.abs(l - 0.5) * 1.6);
-          tr += d[i] * wgt; tg += d[i + 1] * wgt; tb += d[i + 2] * wgt; tw += wgt;
-        }
-        const [h, s] = rgb2hsl([tr / tw, tg / tw, tb / tw]);
-        if (s > 0.12) base = hsl2rgb(h, clamp(s * 0.9, 0.35, 0.72), 0.25 + r() * 0.1);
-      } catch (e) { /* keep palette color */ }
+    const d = dominantColor(img);
+    if (d) {
+      const [h, s] = rgb2hsl(d);
+      if (s > 0.12) base = hsl2rgb(h, clamp(s * 0.9, 0.35, 0.72), 0.25 + r() * 0.1);
     }
     return base;
   }
@@ -555,6 +571,67 @@ function renderLibrary(canvas, scene, makeCanvas) {
   }
 
   // ---- books -------------------------------------------------------------
+  // Writes text down a spine (rotated 90° clockwise) between y = t0 and t1.
+  // Long titles wrap onto two lines when the spine is wide enough;
+  // otherwise they shrink, then truncate. Returns the font size used.
+  function spineText(x, w, t0, t1, text, opts) {
+    const room = (t1 - t0) - 4 * u;
+    if (room <= 0 || !text) return 0;
+    const setFont = size => { ctx.font = opts.font.replace("{fs}", size); };
+    const fits = (lines, size) => {
+      setFont(size);
+      return lines.every(l => ctx.measureText(l).width <= room);
+    };
+    let lines = [text];
+    let fs = Math.min(w * 0.44, opts.maxFs);
+    const minOne = opts.minOneLine || 7.5 * u;
+    while (!fits(lines, fs) && fs > minOne) fs -= 0.25 * u;
+    if (!fits(lines, fs) && text.includes(" ") && !opts.singleLine) {
+      const words = text.split(" ");
+      let best = null;
+      for (let i = 1; i < words.length; i++) {
+        const pair = [words.slice(0, i).join(" "), words.slice(i).join(" ")];
+        setFont(10);
+        const longest = Math.max(...pair.map(l => ctx.measureText(l).width));
+        if (!best || longest < best.longest) best = { pair, longest };
+      }
+      lines = best.pair;
+      fs = Math.min(w * 0.3, opts.maxFs * 0.85);
+      while (!fits(lines, fs) && fs > 5.5 * u) fs -= 0.25 * u;
+    } else {
+      while (!fits(lines, fs) && fs > (opts.minFs || 5.5 * u)) fs -= 0.25 * u;
+    }
+    setFont(fs);
+    lines = lines.map(line => {
+      if (ctx.measureText(line).width <= room) return line;
+      const words = line.split(" ");
+      while (words.length > 1 && ctx.measureText(words.join(" ") + "…").width > room) words.pop();
+      let t = words.join(" ");
+      while (t.length > 1 && ctx.measureText(t + "…").width > room) t = t.slice(0, -1);
+      return t + "…";
+    });
+    ctx.save();
+    ctx.translate(x + w / 2 + fs * 0.04, (t0 + t1) / 2);
+    ctx.rotate(Math.PI / 2);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    if (opts.shadow) {
+      ctx.shadowColor = opts.shadow;
+      ctx.shadowBlur = 1.2 * u;
+      ctx.shadowOffsetY = -0.6 * u;
+    }
+    const lh = fs * 1.12;
+    lines.forEach((line, i) => {
+      // The first line sits on the right, where a reader tilting their head
+      // to the right sees the top of the text.
+      const ly = ((lines.length - 1) / 2 - i) * lh;
+      ctx.fillStyle = opts.fill(ly, fs);
+      ctx.fillText(line, 0, ly);
+    });
+    ctx.restore();
+    return fs;
+  }
+
   function spine(x, baseY, w, h, color, title, key, muted) {
     const r = seeded(key);
     const y = baseY - h;
@@ -624,59 +701,9 @@ function renderLibrary(canvas, scene, makeCanvas) {
       ctx.strokeRect(lx + 0.8 * u, t0 + 0.8 * u, lw - 1.6 * u, t1 - t0 - 1.6 * u);
     }
 
-    // Gilt title, running down the spine. Long titles wrap onto two lines
-    // when the spine is wide enough; otherwise they shrink, then truncate.
-    const room = (t1 - t0) - 6 * u;
-    const text = shortTitle(title);
-    const setFont = size => { ctx.font = `700 ${size}px ${FONT_SPINE}`; };
-    const fits = (lines, size) => {
-      setFont(size);
-      return lines.every(l => ctx.measureText(l).width <= room);
-    };
-    let lines = [text];
-    let fs = Math.min(w * 0.44, 10.5 * u);
-    while (!fits(lines, fs) && fs > 7.5 * u) fs -= 0.25 * u;
-    if (!fits(lines, fs) && text.includes(" ")) {
-      const words = text.split(" ");
-      let best = null;
-      for (let i = 1; i < words.length; i++) {
-        const pair = [words.slice(0, i).join(" "), words.slice(i).join(" ")];
-        setFont(10);
-        const longest = Math.max(...pair.map(l => ctx.measureText(l).width));
-        if (!best || longest < best.longest) best = { pair, longest };
-      }
-      lines = best.pair;
-      fs = Math.min(w * 0.3, 9 * u);
-      while (!fits(lines, fs) && fs > 5.5 * u) fs -= 0.25 * u;
-    } else {
-      while (!fits(lines, fs) && fs > 6 * u) fs -= 0.25 * u;
-    }
-    setFont(fs);
-    lines = lines.map(line => {
-      if (ctx.measureText(line).width <= room) return line;
-      const words = line.split(" ");
-      while (words.length > 1 && ctx.measureText(words.join(" ") + "…").width > room) words.pop();
-      let t = words.join(" ");
-      while (t.length > 1 && ctx.measureText(t + "…").width > room) t = t.slice(0, -1);
-      return t + "…";
-    });
-    ctx.save();
-    ctx.translate(x + w / 2 + fs * 0.04, (t0 + t1) / 2);
-    ctx.rotate(Math.PI / 2);
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.shadowColor = "rgba(0,0,0,0.75)";
-    ctx.shadowBlur = 1.2 * u;
-    ctx.shadowOffsetY = -0.6 * u;
-    const lh = fs * 1.12;
-    lines.forEach((line, i) => {
-      // Rotated 90° clockwise: the first line sits on the right, where a
-      // reader tilting their head to the right sees the top of the text.
-      const ly = ((lines.length - 1) / 2 - i) * lh;
-      ctx.fillStyle = gold(0, ly - fs / 2, 0, ly + fs / 2);
-      ctx.fillText(line, 0, ly);
-    });
-    ctx.restore();
+    // Gilt title, running down the spine.
+    spineText(x, w, t0, t1, shortTitle(title), { font: "700 {fs}px " + FONT_SPINE, maxFs: 10.5 * u,
+      fill: (ly, fs) => gold(0, ly - fs / 2, 0, ly + fs / 2), shadow: "rgba(0,0,0,0.75)" });
   }
 
   function cover(x, baseY, w, h, book) {
@@ -777,7 +804,7 @@ function renderLibrary(canvas, scene, makeCanvas) {
     ctx.restore();
   }
 
-  function flatStack(x, baseY, w, key) {
+  function flatStack(x, baseY, w, key, palette = LEATHER) {
     const r = seeded(key);
     let y = baseY;
     const n = 2 + Math.floor(r() * 2);
@@ -786,7 +813,7 @@ function renderLibrary(canvas, scene, makeCanvas) {
       const bw = w - r() * 7 * u;
       const bx = x + r() * (w - bw);
       y -= t;
-      const c = mix(LEATHER[Math.floor(r() * LEATHER.length)], [20, 8, 4], 0.25);
+      const c = mix(palette[Math.floor(r() * palette.length)], [20, 8, 4], 0.25);
       ctx.save();
       ctx.shadowColor = "rgba(0,0,0,0.55)";
       ctx.shadowBlur = 4 * u;
@@ -1219,7 +1246,475 @@ function renderLibrary(canvas, scene, makeCanvas) {
     ctx.fillRect(innerL, y + plank - 0.8 * u, innerW, 0.8 * u);
   }
 
-  // ---- composition -------------------------------------------------------
+  // ---- cozy theme: knit, floating shelves, fairy lights -------------------
+  const COZY = ["#c8b89a", "#8fa38a", "#c98f8f", "#d6a756", "#4f5d75", "#a3785a", "#e7d7c1", "#6d8b74"].map(hex);
+  const LEAVES = ["#c2410c", "#d97706", "#9a3412", "#b45309", "#dc2626", "#a16207"].map(hex);
+  const luminance = c => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
+
+  // A sweater-knit wall: ribbed columns with a braided cable between them.
+  function knitWall() {
+    const tw = 44 * u, th = 22 * u;
+    const tile = makeCanvas(Math.ceil(tw * S), Math.ceil(th * S));
+    const t = tile.getContext("2d");
+    t.scale(tile.width / tw, tile.height / th);
+    t.fillStyle = "#dccaa9";
+    t.fillRect(0, 0, tw, th);
+
+    // Knit "V" stitches in three rib columns.
+    const leg = (cx, cy, dir) => {
+      t.save();
+      t.translate(cx, cy);
+      t.rotate(dir * 0.55);
+      const g = t.createLinearGradient(0, -3 * u, 0, 3 * u);
+      g.addColorStop(0, "#f7eedd");
+      g.addColorStop(0.6, "#e5d5b8");
+      g.addColorStop(1, "#bfa77f");
+      t.fillStyle = g;
+      t.beginPath();
+      t.ellipse(0, 0, 1.55 * u, 2.9 * u, 0, 0, Math.PI * 2);
+      t.fill();
+      t.restore();
+    };
+    for (const cx of [3.4 * u, 9.6 * u, 15.8 * u]) {
+      for (let y = -th / 4; y <= th + th / 4; y += th / 4) {
+        leg(cx - 1.35 * u, y, -1);
+        leg(cx + 1.35 * u, y, 1);
+      }
+    }
+    // Purl valleys.
+    for (const vx of [0.3 * u, 6.5 * u, 12.7 * u, 18.9 * u]) {
+      const g = t.createLinearGradient(vx - 1.2 * u, 0, vx + 1.2 * u, 0);
+      g.addColorStop(0, "rgba(120,90,50,0)");
+      g.addColorStop(0.5, "rgba(120,90,50,0.45)");
+      g.addColorStop(1, "rgba(120,90,50,0)");
+      t.fillStyle = g;
+      t.fillRect(vx - 1.2 * u, 0, 2.4 * u, th);
+    }
+    // Cable: two strands twisting around each other.
+    const ccx = 31.5 * u, amp = 4.6 * u, rad = 3.9 * u;
+    const strand = (sign, y0, y1) => {
+      for (let y = y0; y <= y1; y += 0.7 * u) {
+        const x = ccx + sign * amp * Math.sin((2 * Math.PI * y) / th);
+        const g = t.createRadialGradient(x - rad * 0.35, y - rad * 0.45, rad * 0.1, x, y, rad);
+        g.addColorStop(0, "#fbf3e3");
+        g.addColorStop(0.65, "#e2d0b0");
+        g.addColorStop(1, "#ab9068");
+        t.fillStyle = g;
+        t.beginPath();
+        t.arc(x, y, rad, 0, Math.PI * 2);
+        t.fill();
+      }
+    };
+    t.fillStyle = "rgba(110,80,45,0.5)";
+    t.fillRect(21 * u, 0, 21 * u, th);
+    strand(-1, -rad, th / 2);
+    strand(1, -rad, th / 2);
+    strand(1, th / 2, th + rad);
+    strand(-1, th / 2, th + rad);
+    // Deep valleys either side of the cable.
+    for (const vx of [21.2 * u, 41.8 * u]) {
+      const g = t.createLinearGradient(vx - 2 * u, 0, vx + 2 * u, 0);
+      g.addColorStop(0, "rgba(90,62,30,0)");
+      g.addColorStop(0.5, "rgba(90,62,30,0.6)");
+      g.addColorStop(1, "rgba(90,62,30,0)");
+      t.fillStyle = g;
+      t.fillRect(vx - 2 * u, 0, 4 * u, th);
+    }
+
+    for (let x = -6 * u; x < W; x += tw) {
+      for (let y = 0; y < H; y += th) ctx.drawImage(tile, x, y, tw + 0.3, th + 0.3);
+    }
+    ctx.fillStyle = "rgba(240,228,206,0.3)";
+    ctx.fillRect(0, 0, W, H);
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    texture(0.1);
+
+    // Soft folds in the fabric and warm window light.
+    ctx.save();
+    for (const [x0, a] of [[0.15, 0.08], [0.55, 0.06], [0.85, 0.07]]) {
+      const g = ctx.createLinearGradient(W * x0 - 30 * u, 0, W * x0 + 30 * u, H * 0.3);
+      g.addColorStop(0, "rgba(80,50,20,0)");
+      g.addColorStop(0.5, `rgba(80,50,20,${a})`);
+      g.addColorStop(1, "rgba(80,50,20,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+    ctx.restore();
+    glow(W * 0.2, -H * 0.1, Math.max(W, H) * 0.9, [255, 226, 180], 0.35);
+  }
+
+  function shelfTop(x0, x1, y) {
+    const g = ctx.createLinearGradient(0, y - 3.5 * u, 0, y);
+    g.addColorStop(0, "#5c361b");
+    g.addColorStop(1, "#b98250");
+    ctx.fillStyle = g;
+    ctx.fillRect(x0, y - 3.5 * u, x1 - x0, 3.5 * u);
+  }
+
+  function shelfFront(x0, x1, y, th) {
+    ctx.save();
+    ctx.shadowColor = "rgba(70,40,15,0.6)";
+    ctx.shadowBlur = 14 * u;
+    ctx.shadowOffsetY = 6 * u;
+    ctx.fillStyle = "#8a5732";
+    roundRect(x0, y, x1 - x0, th, 1.4 * u);
+    ctx.fill();
+    ctx.restore();
+    roundRect(x0, y, x1 - x0, th, 1.4 * u);
+    const g = ctx.createLinearGradient(0, y, 0, y + th);
+    g.addColorStop(0, "#a8703f");
+    g.addColorStop(0.55, "#87532c");
+    g.addColorStop(1, "#5e3519");
+    ctx.fillStyle = g;
+    ctx.fill();
+    texture(0.18);
+    grain(x0, y + 1.2 * u, x1 - x0, th - 2 * u, false, 5, 0.22);
+    ctx.fillStyle = "rgba(255,226,182,0.5)";
+    ctx.fillRect(x0 + 1 * u, y + 0.3 * u, x1 - x0 - 2 * u, 0.6 * u);
+    for (const [ex, dir] of [[x0, 1], [x1, -1]]) {
+      const eg = ctx.createLinearGradient(ex, 0, ex + dir * 5 * u, 0);
+      eg.addColorStop(0, "rgba(40,20,5,0.5)");
+      eg.addColorStop(1, "rgba(40,20,5,0)");
+      ctx.fillStyle = eg;
+      ctx.fillRect(Math.min(ex, ex + dir * 5 * u), y, 5 * u, th);
+    }
+  }
+
+  function fairyLights(x0, x1, y, key) {
+    const r = seeded(key);
+    const swags = Math.max(2, Math.round((x1 - x0) / (75 * u)));
+    const seg = (x1 - x0) / swags;
+    const bulbs = [];
+    ctx.save();
+    ctx.strokeStyle = "rgba(70,50,30,0.75)";
+    ctx.lineWidth = 0.45 * u;
+    for (let i = 0; i < swags; i++) {
+      const ax = x0 + i * seg, bx = ax + seg;
+      const cx = (ax + bx) / 2, cy = y + (12 + r() * 8) * u;
+      ctx.beginPath();
+      ctx.moveTo(ax, y);
+      ctx.quadraticCurveTo(cx, cy, bx, y);
+      ctx.stroke();
+      const n = Math.max(3, Math.round(seg / (7 * u)));
+      for (let k = 1; k < n; k++) {
+        const t = k / n;
+        bulbs.push([
+          (1 - t) * (1 - t) * ax + 2 * (1 - t) * t * cx + t * t * bx,
+          (1 - t) * (1 - t) * y + 2 * (1 - t) * t * cy + t * t * y,
+        ]);
+      }
+    }
+    ctx.restore();
+    for (const [bx, by] of bulbs) {
+      glow(bx, by + 1.2 * u, 11 * u, [255, 186, 90], 0.75);
+      glow(bx, by + 1.2 * u, 4 * u, [255, 236, 170], 0.9);
+      ctx.fillStyle = "#fffbe6";
+      ctx.beginPath();
+      ctx.ellipse(bx, by + 1.2 * u, 1.15 * u, 1.5 * u, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  const MAPLE = [[0, -1], [0.14, -0.66], [0.4, -0.8], [0.32, -0.44], [0.78, -0.52], [0.64, -0.24],
+    [0.95, -0.06], [0.52, 0.06], [0.58, 0.28], [0.16, 0.2], [0.06, 0.42]];
+
+  function mapleLeaf(x, y, size, rot, color) {
+    ctx.save();
+    ctx.shadowColor = "rgba(60,25,5,0.45)";
+    ctx.shadowBlur = 3 * u;
+    ctx.shadowOffsetY = 1 * u;
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.scale(size, size);
+    ctx.beginPath();
+    MAPLE.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+    for (const [px, py] of MAPLE.slice().reverse()) ctx.lineTo(-px, py);
+    ctx.closePath();
+    const g = ctx.createLinearGradient(0, -1, 0, 0.5);
+    g.addColorStop(0, rgba(mix(color, [255, 214, 120], 0.3)));
+    g.addColorStop(1, rgba(mix(color, [70, 22, 5], 0.35)));
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.shadowColor = "transparent";
+    ctx.strokeStyle = rgba(mix(color, [70, 22, 5], 0.5), 0.6);
+    ctx.lineWidth = 0.045;
+    ctx.beginPath();
+    for (const [vx, vy] of [[0, -0.85], [0.62, -0.42], [-0.62, -0.42], [0.72, -0.02], [-0.72, -0.02]]) {
+      ctx.moveTo(0, 0.3);
+      ctx.lineTo(vx, vy);
+    }
+    ctx.moveTo(0, 0.42);
+    ctx.lineTo(0.06, 0.8);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function leafPile(x, y, key, scale = 1) {
+    const r = seeded(key);
+    for (let i = 0; i < 4; i++) {
+      mapleLeaf(x + (r() - 0.5) * 16 * u * scale, y - r() * 5 * u * scale, (5 + r() * 3.5) * u * scale,
+        (r() - 0.5) * 2.6, LEAVES[Math.floor(r() * LEAVES.length)]);
+    }
+  }
+
+  function pottedPlant(cx, baseY, h) {
+    const potH = h * 0.36, topW = h * 0.42, botW = h * 0.3;
+    const potTop = baseY - potH;
+    const r = seeded("plant");
+    const cols = [[63, 107, 42], [101, 163, 13], [202, 138, 4], [217, 119, 6], [185, 28, 28], [77, 124, 15]];
+    const n = 17;
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI * (0.1 + 0.8 * (i / (n - 1))) + (r() - 0.5) * 0.25;
+      const len = h * (0.36 + r() * 0.24) * (1 - Math.abs(a + Math.PI / 2) * 0.22);
+      const wd = len * 0.38;
+      ctx.save();
+      ctx.translate(cx + (r() - 0.5) * topW * 0.3, potTop + 2 * u);
+      ctx.rotate(a);
+      const c = cols[Math.floor(r() * cols.length)];
+      const g = ctx.createLinearGradient(0, 0, len, 0);
+      g.addColorStop(0, "#2f5a1f");
+      g.addColorStop(0.45, rgba(c));
+      g.addColorStop(1, rgba(mix(c, [255, 205, 90], 0.35)));
+      ctx.shadowColor = "rgba(40,25,10,0.4)";
+      ctx.shadowBlur = 3 * u;
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(len * 0.45, -wd * 0.75, len, 0);
+      ctx.quadraticCurveTo(len * 0.45, wd * 0.75, 0, 0);
+      ctx.fill();
+      ctx.shadowColor = "transparent";
+      ctx.strokeStyle = "rgba(255,232,160,0.45)";
+      ctx.lineWidth = 0.4 * u;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(len * 0.92, 0);
+      ctx.stroke();
+      ctx.restore();
+    }
+    const terracotta = (x0, x1) => {
+      const g = ctx.createLinearGradient(x0, 0, x1, 0);
+      g.addColorStop(0, "#6e2a12");
+      g.addColorStop(0.35, "#d27a46");
+      g.addColorStop(0.6, "#b5582b");
+      g.addColorStop(1, "#5e240f");
+      return g;
+    };
+    ctx.save();
+    ctx.shadowColor = "rgba(60,30,10,0.55)";
+    ctx.shadowBlur = 6 * u;
+    ctx.shadowOffsetX = 2 * u;
+    ctx.fillStyle = terracotta(cx - topW / 2, cx + topW / 2);
+    ctx.beginPath();
+    ctx.moveTo(cx - topW / 2, potTop);
+    ctx.lineTo(cx + topW / 2, potTop);
+    ctx.lineTo(cx + botW / 2, baseY);
+    ctx.lineTo(cx - botW / 2, baseY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    const rimH = potH * 0.22;
+    ctx.fillStyle = terracotta(cx - topW / 2 - 1.5 * u, cx + topW / 2 + 1.5 * u);
+    roundRect(cx - topW / 2 - 1.5 * u, potTop - rimH * 0.3, topW + 3 * u, rimH, 1 * u);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,220,180,0.3)";
+    ctx.fillRect(cx - topW / 2 - 1 * u, potTop - rimH * 0.3 + 0.4 * u, topW + 2 * u, 0.6 * u);
+  }
+
+  function ivyLeaf(x, y, s, rot) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.beginPath();
+    ctx.moveTo(0, s);
+    ctx.bezierCurveTo(-s * 1.25, s * 0.2, -s * 0.95, -s * 0.95, 0, -s * 0.4);
+    ctx.bezierCurveTo(s * 0.95, -s * 0.95, s * 1.25, s * 0.2, 0, s);
+    const g = ctx.createLinearGradient(0, -s, 0, s);
+    g.addColorStop(0, "#4f8a45");
+    g.addColorStop(1, "#173d1f");
+    ctx.fillStyle = g;
+    ctx.shadowColor = "rgba(20,30,10,0.5)";
+    ctx.shadowBlur = 2 * u;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function ivy(x, y, len, key) {
+    const r = seeded(key);
+    const phase = r() * 6;
+    const at = t => [x + Math.sin(t * 4 + phase) * 3.5 * u * t, y + t * len];
+    ctx.strokeStyle = "#4b5a2a";
+    ctx.lineWidth = 0.6 * u;
+    ctx.beginPath();
+    for (let t = 0; t <= 1.001; t += 0.02) {
+      const [px, py] = at(t);
+      if (t === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    let side = 1;
+    for (let d = 2 * u; d < len; d += 3.6 * u) {
+      const [px, py] = at(d / len);
+      const s = (2.6 + r() * 1.2) * u * (1 - (d / len) * 0.35);
+      ivyLeaf(px + side * 2 * u, py, s, side * 0.6 + (r() - 0.5) * 0.4);
+      side = -side;
+    }
+  }
+
+  // A modern spine: a soft-focus strip of the book's own cover, with the
+  // title and author running down it.
+  function paperSpine(x, baseY, w, h, b) {
+    const y = baseY - h;
+    const r = seeded(b.id + "style");
+    const base = dominantColor(b.img) || b.color || COZY[Math.floor(r() * COZY.length)];
+    const radius = [1 * u, 1 * u, 0.3 * u, 0.3 * u];
+
+    ctx.save();
+    ctx.shadowColor = "rgba(50,28,10,0.55)";
+    ctx.shadowBlur = 6 * u;
+    ctx.shadowOffsetX = 2 * u;
+    ctx.fillStyle = rgba(base);
+    roundRect(x, y, w, h, radius);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    roundRect(x, y, w, h, radius);
+    ctx.clip();
+    if (b.img) {
+      const strip = makeCanvas(3, 40);
+      strip.getContext("2d").drawImage(b.img, b.img.width * 0.03, 0, b.img.width * 0.22, b.img.height, 0, 0, 3, 40);
+      ctx.drawImage(strip, x, y, w, h);
+      ctx.fillStyle = rgba(base, 0.45);
+      ctx.fillRect(x, y, w, h);
+    }
+    const g = ctx.createLinearGradient(x, 0, x + w, 0);
+    g.addColorStop(0, "rgba(0,0,0,0.38)");
+    g.addColorStop(0.12, "rgba(255,255,255,0.16)");
+    g.addColorStop(0.32, "rgba(255,255,255,0.04)");
+    g.addColorStop(0.8, "rgba(0,0,0,0.08)");
+    g.addColorStop(1, "rgba(0,0,0,0.42)");
+    ctx.fillStyle = g;
+    ctx.fillRect(x, y, w, h);
+    ctx.restore();
+    if (!b.title) return;
+
+    const light = luminance(base) < 150;
+    const ink = light ? "#fbf3e4" : "#2a1d14";
+    const accent = light ? "rgba(255,240,215,0.55)" : "rgba(40,25,15,0.45)";
+    const style = Math.floor(r() * 3);
+    const fonts = [
+      { font: "600 {fs}px Oswald, 'Avenir Next Condensed', 'Arial Narrow', sans-serif", maxFs: 10 * u, upper: true },
+      { font: "700 {fs}px " + FONT_SPINE, maxFs: 9.5 * u, upper: false },
+      { font: "italic 600 {fs}px " + FONT_ITALIC, maxFs: 12 * u, upper: false },
+    ][style];
+    const title = shortTitle(b.title);
+    const hasAuthor = b.author && h > 60 * u;
+    const t1 = y + h * (hasAuthor ? 0.74 : 0.95);
+    spineText(x, w, y + h * 0.05, t1, fonts.upper ? title.toUpperCase() : title, {
+      font: fonts.font, maxFs: fonts.maxFs, fill: () => ink,
+      shadow: light ? "rgba(0,0,0,0.45)" : null,
+    });
+    if (hasAuthor) {
+      ctx.fillStyle = accent;
+      ctx.fillRect(x + w * 0.3, y + h * 0.765, w * 0.4, 0.5 * u);
+      const last = b.author.split(" ").pop().toUpperCase();
+      spineText(x, w, y + h * 0.79, y + h * 0.97, last, {
+        font: "600 {fs}px Oswald, 'Avenir Next Condensed', sans-serif", maxFs: Math.min(6.5 * u, w * 0.34),
+        minOneLine: 4 * u, minFs: 4 * u, singleLine: true, fill: () => ink,
+      });
+    }
+  }
+
+  function paintCozy() {
+    knitWall();
+
+    const shelves = scene.family === "large" ? 2 : 1;
+    const th = 8 * u;
+    const topPad = 6 * u, bottomPad = 16 * u;
+    const slot = (H - topPad - bottomPad) / shelves;
+    const x0 = (scene.family === "small" ? 7 : 10) * u, x1 = W - x0;
+
+    const seq = scene.covers.map(b => ({ kind: "cover", b, ribbon: true }));
+    scene.spines.forEach((b, i) => seq.push({ kind: b.img && i % 4 === 2 ? "cover" : "spine", b }));
+
+    const after = [];
+    for (let s = 0; s < shelves; s++) {
+      const slotTop = topPad + s * slot;
+      const plankY = slotTop + slot;
+      const baseY = plankY - 0.8 * u;
+      const maxH = baseY - slotTop - (s === 0 ? 4 : 12) * u;
+
+      shelfTop(x0, x1, plankY);
+
+      let x = x0 + 5 * u;
+      let limit = x1 - 4 * u;
+      let plant = null;
+      if (cfg.showPlant && s === 0 && scene.family !== "small") {
+        const ph = Math.min(maxH * 0.75, 80 * u);
+        plant = { cx: limit - ph * 0.3, h: ph };
+        limit -= ph * 0.62 + 3 * u;
+      }
+
+      while (seq.length) {
+        const it = seq[0];
+        const r = seeded(it.b.id + "size");
+        if (it.kind === "cover") {
+          const h = maxH * (it.ribbon ? 0.94 : 0.88 + r() * 0.06);
+          const ratio = it.b.img ? clamp(it.b.img.width / it.b.img.height, 0.6, 0.75) : 0.66;
+          const w = h * ratio;
+          if (x + w > limit) break;
+          seq.shift();
+          cover(x + 1 * u, baseY, w, h, it.b);
+          const rx = x + 1 * u + w * 0.7;
+          if (it.ribbon) after.push(() => ribbon(rx, baseY - 3 * u, plankY + th + 5 * u));
+          x += w + 3 * u;
+        } else {
+          const w = (13 + r() * 6) * u;
+          if (x + w > limit) break;
+          seq.shift();
+          paperSpine(x, baseY, w, maxH * (0.8 + r() * 0.18), it.b);
+          x += w + 0.5 * u;
+        }
+      }
+
+      if (cfg.fillEmptySpace && limit - x > 10 * u) {
+        x += 4 * u;
+        const stackW = Math.min(44 * u, limit - x);
+        if (stackW >= 30 * u) {
+          flatStack(x, baseY, stackW, "cozy-stack" + s, COZY);
+          x += stackW + 4 * u;
+        }
+        while (limit - x > 9 * u) {
+          const w = (9 + rng() * 6) * u;
+          if (x + w > limit) break;
+          paperSpine(x, baseY, w, maxH * (0.72 + rng() * 0.2), { id: "f" + s + x, color: COZY[Math.floor(rng() * COZY.length)] });
+          x += w + 0.5 * u;
+        }
+      }
+
+      if (plant) pottedPlant(plant.cx, baseY, plant.h);
+      shelfFront(x0, x1, plankY, th);
+      after.splice(0).forEach(f => f());
+      if (cfg.showLights) fairyLights(x0 + 2 * u, x1 - 2 * u, plankY + th * 0.55, "lights" + s);
+      if (cfg.showLeaves) {
+        const k = scene.family === "small" ? 1.1 : 1.5;
+        if (s === 0) leafPile(x0 + 9 * u, plankY + 1 * u, "leaves-left" + s, k);
+        if (s === shelves - 1) leafPile(x1 - 11 * u, plankY + 1 * u, "leaves-right" + s, k);
+      }
+    }
+    if (cfg.showPlant && shelves > 1) ivy(x0 + 6 * u, topPad + slot + th - 1 * u, slot * 0.4, "shelf-ivy");
+
+    const v = ctx.createRadialGradient(W / 2, H * 0.45, Math.min(W, H) * 0.4, W / 2, H * 0.5, Math.max(W, H) * 0.85);
+    v.addColorStop(0, "rgba(60,30,10,0)");
+    v.addColorStop(1, "rgba(60,30,10,0.35)");
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // ---- composition: enchanted library ------------------------------------
+  function paintEnchanted() {
   backWall();
 
   const covers = scene.covers.slice();
@@ -1317,6 +1812,10 @@ function renderLibrary(canvas, scene, makeCanvas) {
   v.addColorStop(1, "rgba(0,0,0,0.55)");
   ctx.fillStyle = v;
   ctx.fillRect(0, 0, W, H);
+  }
+
+  if (cfg.theme === "enchanted") paintEnchanted();
+  else paintCozy();
 
   if (scene.note) {
     const w = Math.min(W - 30 * u, 170 * u), h = 36 * u;
