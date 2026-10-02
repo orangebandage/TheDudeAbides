@@ -16,7 +16,7 @@
 // public shelf RSS feeds (Goodreads no longer offers an API).
 
 const CONFIG = {
-  theme: "cozy",                     // "cozy", "rustic" or "enchanted" (see README)
+  theme: "rustic",                   // "rustic", "cozy" or "enchanted" (see README)
   goodreadsUserId: "183463841",
   readingShelf: "currently-reading", // shown face-out with a ribbon bookmark ("" to skip)
   shelves: [                         // Goodreads shelves to show, top to bottom
@@ -2059,7 +2059,8 @@ function renderLibrary(canvas, scene, makeCanvas) {
 
     let queue = [];
     const covers = scene.covers.slice();
-    const groups = ["spines", "stack", "spines", "cover"];
+    // Only the currently-reading books face out; the rest stand as spines.
+    const groups = ["spines"];
     let g = 0;
 
     for (let s = 0; s < shelves; s++) {

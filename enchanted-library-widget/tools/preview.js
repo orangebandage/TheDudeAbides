@@ -27,7 +27,7 @@ const SIZES = {
   large: [Math.round(SCREEN_W * 0.86), Math.round(SCREEN_W * 0.86 * 1.05)],
 };
 const CONFIG = {
-  theme: process.env.THEME || "cozy", libraryName: "My Library", fillEmptySpace: true,
+  theme: process.env.THEME || "rustic", libraryName: "My Library", fillEmptySpace: true,
   showRose: true, showCandle: true, showPlant: true, showLights: true, showLeaves: true,
   showLamp: true, showClock: true, showLabels: true,
   readingShelf: "currently-reading",

@@ -2,14 +2,14 @@
 
 An iPhone home-screen widget for the [Scriptable](https://scriptable.app) app that shows your Goodreads books on a bookshelf. It comes in three looks:
 
-- **Cozy** (the default): floating wooden shelves on a cream cable-knit background, with fairy lights, autumn leaves, a potted plant and trailing ivy. Your books mix face-out covers with spines made from each cover's colors.
-- **Rustic**: a weathered wood-plank wall with slim shelves, brass shelf labels, a glowing table lamp and a brass alarm clock. Books stand as spines with the title and author, lie in stacks, or face out.
+- **Cozy**: floating wooden shelves on a cream cable-knit background, with fairy lights, autumn leaves, a potted plant and trailing ivy. Your books mix face-out covers with spines made from each cover's colors.
+- **Rustic** (the default): a weathered wood-plank wall with slim shelves, brass shelf labels, a glowing table lamp and a brass alarm clock. Books stand as spines with the title and author, and each shelf has a brass label.
 - **Enchanted**: a candle-lit, dark-wood library inspired by the Beast's library in *Beauty and the Beast*, with an arched gilded bookcase, leather-bound spines, a brass candlestick and the rose under glass.
 
 Either way:
 
 - **Currently reading:** cover facing out, with a red ribbon bookmark
-- **Read:** your most recently finished books, as spines with the title and author, mixed with face-out covers (and stacks, in the rustic look)
+- **Read:** your most recently finished books, as spines with the title and author (the cozy look also turns some covers face-out)
 - **To-read (TBR):** a second shelf of books on the large widget. Small and medium widgets show only Read.
 - Leftover space fills with a stack of books and some untitled volumes
 
@@ -17,7 +17,7 @@ Either way:
 |---|---|---|
 | ![small](previews/preview-small.png) | ![medium](previews/preview-medium.png) | ![large](previews/preview-large.png) |
 
-Rustic look: ![rustic](previews/preview-rustic-medium.png)
+Cozy look: ![cozy](previews/preview-cozy-medium.png)
 
 Enchanted look: ![enchanted](previews/preview-enchanted-medium.png)
 
@@ -41,7 +41,7 @@ Edit the `CONFIG` block at the top of the script:
 
 | Setting | What it does |
 |---|---|
-| `theme` | `"cozy"`, `"rustic"` or `"enchanted"` |
+| `theme` | `"rustic"`, `"cozy"` or `"enchanted"` |
 | `goodreadsUserId` | The number in your profile URL (`183463841`) |
 | `readingShelf` | Shelf shown face-out with ribbons, at the front of the top shelf (`currently-reading`; `""` to skip) |
 | `shelves` | Shelves to show, top to bottom, each with the label shown on its brass plaque in the rustic look (`read` labeled "Read", then `to-read` labeled "TBR"). Large widgets show one shelf of books per entry; small and medium show only the first. |
