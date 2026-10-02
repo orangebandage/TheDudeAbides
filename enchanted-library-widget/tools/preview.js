@@ -5,12 +5,15 @@
 //   npm install @napi-rs/canvas
 //   node tools/preview.js [fontDir] [outDir]
 //
+// Set COVERS_DIR to a folder of real cover images named <book id>.jpg to use
+// them instead of the generated stand-ins.
+//
 // fontDir may hold Cinzel, Cormorant Garamond and Pinyon Script .ttf files
 // (from Google Fonts) so the preview uses the same lettering as the phone.
 
 const fs = require("fs");
 const path = require("path");
-const { createCanvas, GlobalFonts } = require("@napi-rs/canvas");
+const { createCanvas, GlobalFonts, loadImage } = require("@napi-rs/canvas");
 const { sampleBooks } = require("./sample-feed");
 
 const src = fs.readFileSync(path.join(__dirname, "..", "EnchantedLibrary.js"), "utf8");
@@ -55,13 +58,20 @@ function stubCover(book, i) {
   return c;
 }
 
+const covers = {};
+async function loadCovers() {
+  const dir = process.env.COVERS_DIR;
+  if (!dir) return;
+  for (const f of fs.readdirSync(dir)) covers[path.parse(f).name] = await loadImage(path.join(dir, f));
+}
+
 function render(family, outDir, note) {
   const [width, height] = SIZES[family];
   const scale = 3;
   const canvas = createCanvas(width * scale, height * scale);
-  const reading = note ? [] : sampleBooks.reading.map((b, i) => ({ ...b, img: stubCover(b, i) }));
+  const reading = note ? [] : sampleBooks.reading.map((b, i) => ({ ...b, img: covers[b.id] || stubCover(b, i) }));
   const max = { small: 1, medium: 2, large: 3 }[family];
-  const favs = note ? [] : sampleBooks.favorites.map((b, i) => ({ ...b, img: stubCover(b, i) }));
+  const favs = note ? [] : sampleBooks.favorites.map((b, i) => ({ ...b, img: covers[b.id] || stubCover(b, i) }));
   const scene = {
     family, width, height, scale, config: CONFIG, note: note || "",
     covers: reading.slice(0, max),
@@ -77,5 +87,7 @@ const fontDir = process.argv[2];
 if (fontDir) for (const f of fs.readdirSync(fontDir)) GlobalFonts.registerFromPath(path.join(fontDir, f));
 const outDir = process.argv[3] || path.join(__dirname, "..", "previews");
 fs.mkdirSync(outDir, { recursive: true });
-for (const family of ["small", "medium", "large"]) render(family, outDir);
-render("medium", outDir, "Couldn’t reach Goodreads.\nIs your profile public?");
+loadCovers().then(() => {
+  for (const family of ["small", "medium", "large"]) render(family, outDir);
+  render("medium", outDir, "Couldn’t reach Goodreads.\nIs your profile public?");
+});
