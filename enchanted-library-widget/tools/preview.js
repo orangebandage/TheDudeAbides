@@ -29,7 +29,7 @@ const SIZES = {
 const CONFIG = {
   theme: process.env.THEME || "enchanted", libraryName: "My Library", fillEmptySpace: true,
   showRose: true, showCandle: true, showPlant: true, showLights: true, showLeaves: true,
-  showLamp: true, showClock: true, showLabels: true, ornateSpines: process.env.ORNATE || "tbr",
+  showLamp: true, showClock: true, showLabels: true, ornateSpines: process.env.ORNATE || "all",
   readingShelf: "currently-reading",
 };
 

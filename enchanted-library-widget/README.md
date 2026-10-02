@@ -4,7 +4,7 @@ An iPhone home-screen widget for the [Scriptable](https://scriptable.app) app th
 
 - **Cozy**: floating wooden shelves on a cream cable-knit background, with fairy lights, autumn leaves, a potted plant and trailing ivy. Your books mix face-out covers with spines made from each cover's colors.
 - **Rustic**: a weathered wood-plank wall with slim shelves, brass shelf labels, a glowing table lamp and a brass alarm clock. Books stand as spines with the title and author, and each shelf has a brass label.
-- **Enchanted** (the default): a candle-lit, dark-wood library inspired by the Beast's library in *Beauty and the Beast*, with an arched gilded bookcase, leather-bound spines, a brass candlestick and the rose under glass. On the large widget, the TBR shelf uses finely tooled spines with gilt fleurons and separate title and author labels.
+- **Enchanted** (the default): a candle-lit, dark-wood library inspired by the Beast's library in *Beauty and the Beast*, with an arched gilded bookcase, leather-bound spines, a brass candlestick and the rose under glass. Its spines are finely tooled with gilt fleurons and separate title and author labels.
 
 Either way:
 
@@ -48,7 +48,7 @@ Edit the `CONFIG` block at the top of the script:
 | `libraryName` | Enchanted only: script lettering on the large widget's crown (`"My Library"`) |
 | `fillEmptySpace` | `false` leaves empty shelf space instead of antique filler books |
 | `showRose`, `showCandle` | Enchanted only: `false` hides the rose or the candlestick |
-| `ornateSpines` | Enchanted only: which shelves get the tooled spines with author labels: `"tbr"` (the second shelf), `"all"` or `"none"` |
+| `ornateSpines` | Enchanted only: which shelves get the tooled spines with author labels: `"all"` (the default), `"tbr"` (only the second shelf) or `"none"` |
 | `showPlant`, `showLights`, `showLeaves` | Cozy only: `false` hides the plant and ivy, the fairy lights, or the autumn leaves |
 | `showLamp`, `showClock` | Rustic only: `false` hides the lamp or the clock |
 | `showLabels` | `false` hides the brass shelf labels (rustic, and the large enchanted widget) |

@@ -27,7 +27,7 @@ const CONFIG = {
   fillEmptySpace: true,              // pad shelves with untitled antique volumes
   showRose: true,                    // enchanted: the rose under glass
   showCandle: true,                  // enchanted: a lit brass candlestick
-  ornateSpines: "tbr",               // enchanted: tooled spines with author labels: "tbr", "all" or "none"
+  ornateSpines: "all",               // enchanted: tooled spines with author labels: "all", "tbr" or "none"
   showPlant: true,                   // cozy: potted plant and trailing ivy
   showLights: true,                  // cozy: fairy lights under the shelves
   showLeaves: true,                  // cozy: autumn leaves on the shelves
