@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Family Frame</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <div id="clock">
+        <div id="time">--:--</div>
+        <div id="date"></div>
+      </div>
+      <div id="weather" class="panel-ish">
+        <div class="muted">Loading weather…</div>
+      </div>
+    </header>
+
+    <section id="photos" class="panel">
+      <div class="photo-layer" id="photo-a"></div>
+      <div class="photo-layer" id="photo-b"></div>
+      <div id="photo-empty" class="empty hidden">
+        <div class="big">🖼️</div>
+        <div>No photos yet.</div>
+        <div class="muted small">Add pictures to your Google Drive photo folder (or the <code>photos/</code> folder) — see README.</div>
+      </div>
+      <button class="nav prev" id="photo-prev" aria-label="Previous photo">‹</button>
+      <button class="nav next" id="photo-next" aria-label="Next photo">›</button>
+      <button class="photo-pause" id="photo-pause" aria-label="Pause slideshow">❚❚</button>
+    </section>
+
+    <aside id="side">
+      <section id="calendar" class="panel">
+        <h2>📅 Calendar</h2>
+        <div id="calendar-body" class="scroll"><div class="muted">Loading calendar…</div></div>
+      </section>
+
+      <section id="hockey" class="panel">
+        <div class="hockey-head">
+          <h2>🏒 Hockey</h2>
+          <div class="day-switch">
+            <button id="hockey-day-prev" aria-label="Previous day">‹</button>
+            <span id="hockey-day">Today</span>
+            <button id="hockey-day-next" aria-label="Next day">›</button>
+          </div>
+        </div>
+        <div id="hockey-card" class="scroll"><div class="muted">Loading scores…</div></div>
+        <div class="hockey-foot">
+          <button class="nav-sm" id="game-prev" aria-label="Previous game">‹</button>
+          <div id="game-dots"></div>
+          <button class="nav-sm" id="game-next" aria-label="Next game">›</button>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <div id="night-dim"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/util.js"></script>
+  <script src="js/clock.js"></script>
+  <script src="js/weather.js"></script>
+  <script src="js/calendar.js"></script>
+  <script src="js/hockey.js"></script>
+  <script src="js/photos.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
