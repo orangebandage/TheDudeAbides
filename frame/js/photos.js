@@ -122,6 +122,7 @@
   }
 
   F.startPhotos = function () {
+    document.body.classList.add('photo-' + (['small', 'large'].indexOf(P.size) >= 0 ? P.size : 'medium'));
     var box = F.el('photos');
     F.el('photo-prev').onclick = function (e) { e.stopPropagation(); show(-1); restartTimer(); };
     F.el('photo-next').onclick = function (e) { e.stopPropagation(); show(1); restartTimer(); };

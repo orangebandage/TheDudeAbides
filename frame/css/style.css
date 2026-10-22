@@ -59,6 +59,8 @@ body.cal-month #app {
     "cal photo"
     "cal hockey";
 }
+body.cal-month.photo-small #app { grid-template-rows: auto minmax(0, 0.75fr) minmax(0, 1.35fr); }
+body.cal-month.photo-large #app { grid-template-rows: auto minmax(0, 1.4fr) minmax(0, 1fr); }
 /* Agenda view: big photo, list calendar + hockey on the right. */
 body.cal-agenda #app {
   grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
@@ -110,6 +112,7 @@ body.cal-agenda #app {
 
 /* ---------- clock ---------- */
 #time { font-size: 4.2rem; font-weight: 300; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+#time .ampm { font-size: 1.5rem; font-weight: 400; letter-spacing: 0.02em; margin-left: 0.35rem; color: var(--muted); }
 #date { font-size: 1.25rem; color: var(--muted); margin-top: 0.3rem; }
 #world-clocks { display: flex; gap: 1.6rem; margin-right: auto; border-left: 1px solid var(--panel-border); padding-left: 1.6rem; }
 #world-clocks:empty { display: none; }
@@ -361,6 +364,8 @@ body.cal-month #calendar-body { overflow: hidden; display: flex; }
       "cal cal"
       "photo hockey";
   }
+  body.cal-month.photo-small #app { grid-template-columns: 0.8fr 1.2fr; grid-template-rows: auto minmax(0, 1.3fr) minmax(0, 1fr); }
+  body.cal-month.photo-large #app { grid-template-columns: 1.2fr 0.8fr; grid-template-rows: auto minmax(0, 1.3fr) minmax(0, 1fr); }
   body.cal-agenda #app {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto minmax(0, 1.2fr) minmax(0, 1fr);

@@ -1,7 +1,11 @@
 (function (F) {
   function tick() {
     var now = new Date();
-    F.el('time').textContent = F.formatTime(now).replace(/\s?[AP]M$/i, '');
+    var t = F.formatTime(now);
+    var ampm = /\s?([AP]M)$/i.exec(t);
+    F.el('time').innerHTML = ampm
+      ? F.esc(t.slice(0, ampm.index)) + '<span class="ampm">' + ampm[1].toUpperCase() + '</span>'
+      : F.esc(t);
     F.el('date').textContent = now.toLocaleDateString([], {
       weekday: 'long', month: 'long', day: 'numeric',
     });

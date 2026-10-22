@@ -68,6 +68,7 @@ Your calendar and photos are not made public.
 - `weather.units`: `'celsius'` or `'fahrenheit'`.
 - `hockey.favoriteTeams`: e.g. `['TOR']`, `['BOS', 'NYR']`. Uses the standard NHL abbreviations.
 - `hockey.showYesterdayUntilHour`: in the morning it shows last night's results; after this hour it switches to today.
+- `photos.size`: `'small'`, `'medium'` or `'large'`, the room the photo gets next to the hockey scores.
 - `photos.intervalSeconds`, `photos.shuffle`, `nightDim`, `use24HourClock`: adjust to taste.
 
 ## 3. Put it on the frame

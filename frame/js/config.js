@@ -55,6 +55,9 @@ window.FRAME_CONFIG = {
   },
 
   photos: {
+    // How much room the photo gets next to the hockey scores: 'small', 'medium' or 'large'.
+    // (Double-tap the photo on the frame to see it full screen.)
+    size: 'small',
     intervalSeconds: 30,
     shuffle: true,
     refreshListMinutes: 30,      // how often to check the Drive folder for new/removed photos
