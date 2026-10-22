@@ -405,6 +405,29 @@ body.cal-month #calendar-body { overflow: hidden; display: flex; }
 .cd-dots span.on { background: var(--text); }
 .cd-text { padding-right: 1.6rem; }
 
+/* ---------- countdown list (tab in the hockey panel) ---------- */
+.tabs { margin-right: 0; }
+.tabs button { height: 2.2rem; padding: 0 0.8rem; font-size: 0.85rem; border-radius: 8px; color: var(--muted); white-space: nowrap; }
+.tabs button.on { background: rgba(255,255,255,0.12); color: var(--text); font-weight: 650; }
+#hockey.show-countdown .hockey-only { display: none !important; }
+.cdl-row {
+  display: grid;
+  grid-template-columns: 5px 2.6rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.2rem;
+  border-bottom: 1px solid var(--panel-border);
+}
+.cdl-row:last-child { border-bottom: 0; }
+.cdl-bar { align-self: stretch; border-radius: 3px; background: var(--c); }
+.cdl-icon { font-size: 1.9rem; line-height: 1; text-align: center; }
+.cdl-title { font-size: 1.05rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cdl-date { font-size: 0.85rem; color: var(--muted); margin-top: 0.1rem; }
+.cdl-days { text-align: right; line-height: 1.1; }
+.cdl-num { font-size: 1.7rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cdl-unit { font-size: 0.78rem; color: var(--muted); }
+.cdl-row.today .cdl-num { color: var(--good); }
+
 /* ---------- event details ---------- */
 [data-ev] { cursor: pointer; }
 .dv-ev:active, .me:active, .cal-ev:active { filter: brightness(1.3); }

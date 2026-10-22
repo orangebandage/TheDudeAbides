@@ -60,15 +60,19 @@
 
     <section id="hockey" class="panel">
       <div class="hockey-head">
-        <h2>🏒 Hockey</h2>
-        <div class="day-switch">
+        <div class="seg tabs">
+          <button id="tab-hockey" class="on">🏒 Hockey</button>
+          <button id="tab-countdown">⏳ Countdowns</button>
+        </div>
+        <div class="day-switch hockey-only">
           <button id="hockey-day-prev" aria-label="Previous day">‹</button>
           <span id="hockey-day">Today</span>
           <button id="hockey-day-next" aria-label="Next day">›</button>
         </div>
       </div>
-      <div id="hockey-card" class="scroll"><div class="muted">Loading scores…</div></div>
-      <div class="hockey-foot">
+      <div id="hockey-card" class="scroll hockey-only"><div class="muted">Loading scores…</div></div>
+      <div id="countdown-list" class="scroll hidden"></div>
+      <div class="hockey-foot hockey-only">
         <button class="nav-sm" id="game-prev" aria-label="Previous game">‹</button>
         <div id="game-dots"></div>
         <button class="nav-sm" id="game-next" aria-label="Next game">›</button>

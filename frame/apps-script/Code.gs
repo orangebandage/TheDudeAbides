@@ -89,7 +89,7 @@ function events_(startParam, endParam) {
         end: allDay ? Utilities.formatDate(ev.getAllDayEndDate(), tz, 'yyyy-MM-dd') : ev.getEndTime().toISOString(),
         location: ev.getLocation() || '',
         description: plainText_(ev.getDescription()),
-        color: color,
+        color: eventColor_(ev) || color,
         calendar: cal.getName(),
       });
     });
@@ -116,12 +116,21 @@ function countdowns_() {
       const clean = title.replace(new RegExp('\\s*' + COUNTDOWN_TAG + '\\b', 'ig'), '').trim() || 'Countdown';
       const day = Utilities.formatDate(ev.isAllDayEvent() ? ev.getAllDayStartDate() : ev.getStartTime(), tz, 'yyyy-MM-dd');
       if (!byTitle[clean] || day < byTitle[clean].date) {
-        byTitle[clean] = { title: clean, date: day, color: cal.getColor() };
+        byTitle[clean] = { title: clean, date: day, color: eventColor_(ev) || cal.getColor() };
       }
     });
   });
   return Object.keys(byTitle).map(function (k) { return byTitle[k]; })
     .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+}
+
+// An event's own colour (if you picked one in Google Calendar), as a hex colour.
+const EVENT_COLORS_ = {
+  1: '#7986cb', 2: '#33b679', 3: '#8e24aa', 4: '#e67c73', 5: '#f6bf26', 6: '#f4511e',
+  7: '#039be5', 8: '#616161', 9: '#3f51b5', 10: '#0b8043', 11: '#d50000',
+};
+function eventColor_(ev) {
+  return EVENT_COLORS_[ev.getColor()] || '';
 }
 
 // Event descriptions can contain HTML; the frame shows plain text.
