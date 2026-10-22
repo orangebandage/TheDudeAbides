@@ -8,6 +8,19 @@
     });
   }
 
+  // When the device wakes up after a while asleep (or the app comes back to the front),
+  // reload so everything on screen is current straight away.
+  function refreshOnWake() {
+    var hiddenAt = null;
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now();
+      } else if (hiddenAt && Date.now() - hiddenAt > 60000) {
+        location.reload();
+      }
+    });
+  }
+
   function goFullscreen() {
     var de = document.documentElement;
     if (!document.fullscreenElement && de.requestFullscreen) de.requestFullscreen().catch(function () {});
@@ -20,7 +33,8 @@
     F.startHockey();
     F.startPhotos();
     F.startCountdown();
-    keepAwake();
+    if (F.cfg.keepScreenOn) keepAwake();
+    refreshOnWake();
 
     // Browsers only allow fullscreen after a tap; the first tap anywhere does it.
     document.addEventListener('pointerup', goFullscreen, { once: true });

@@ -83,6 +83,11 @@ window.FRAME_CONFIG = {
     ],
   },
 
+  // true  = stop the screen from going to sleep (best when the device is always plugged in).
+  // false = let the device's own Auto-Lock put it to sleep to save battery; tap to wake and
+  //         the frame refreshes straight away.
+  keepScreenOn: false,
+
   // Dim the screen at night. Set enabled: false to turn off.
   nightDim: { enabled: true, fromHour: 22, toHour: 6, opacity: 0.65 },
 

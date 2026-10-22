@@ -92,7 +92,8 @@ Any change pushed to that branch goes live within a couple of minutes. A frame t
 2. Tap the **Share** button (□↑) → **Add to Home Screen** → **Add**. You now have a **Family Frame** app icon.
 3. Open the app from the home screen. It runs full screen with no Safari bars.
 4. The first time, it asks for the **Web app URL** and **access key**. Paste them and tap **Test & save**.
-5. To keep the screen on, go to **Settings → Display & Brightness → Auto-Lock → Never**, and keep the iPad plugged in.
+5. **Plugged in all the time?** Set `keepScreenOn: true` in `config.js` and **Settings → Display & Brightness → Auto-Lock → Never**.
+   **Running on battery** (e.g. on the fridge)? Leave `keepScreenOn: false` and set Auto-Lock to 2–5 minutes. The iPad sleeps when nobody's using it; tap it to wake, and the frame refreshes straight away.
 6. Optional: use **Guided Access** to lock the iPad to the app. Turn it on in Settings → Accessibility → Guided Access, then triple-click the top or Home button inside the app.
 
 ### c) Android-based digital frame
