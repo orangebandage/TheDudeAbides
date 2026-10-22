@@ -97,8 +97,8 @@ function parseDay_(s) {
 }
 
 function photos_() {
-  if (!PHOTO_FOLDER_ID) return [];
-  const files = DriveApp.getFolderById(PHOTO_FOLDER_ID).getFiles();
+  if (!folderId_()) return [];
+  const files = DriveApp.getFolderById(folderId_()).getFiles();
   const out = [];
   while (files.hasNext()) {
     const f = files.next();
@@ -116,9 +116,9 @@ function photo_(id) {
   let inFolder = false;
   const parents = file.getParents();
   while (parents.hasNext()) {
-    if (parents.next().getId() === PHOTO_FOLDER_ID) inFolder = true;
+    if (parents.next().getId() === folderId_()) inFolder = true;
   }
-  if (!PHOTO_FOLDER_ID || !inFolder) throw new Error('Not a frame photo');
+  if (!folderId_() || !inFolder) throw new Error('Not a frame photo');
   if (!isShowable_(file.getMimeType())) throw new Error('Unsupported image type');
   if (file.getSize() > MAX_PHOTO_MB * 1024 * 1024) throw new Error('Photo too large');
 
@@ -126,13 +126,46 @@ function photo_(id) {
   return { data: 'data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes()) };
 }
 
+// Accepts the bare folder ID or a whole pasted Drive folder link.
+function folderId_() {
+  const s = String(PHOTO_FOLDER_ID || '').trim();
+  const m = /folders\/([\w-]+)/.exec(s) || /[?&]id=([\w-]+)/.exec(s);
+  return m ? m[1] : s.split('?')[0];
+}
+
 function isShowable_(mime) {
   // HEIC (default iPhone format) can't be shown by most browsers — see README.
-  return ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].indexOf(mime) >= 0;
+  return ['image/jpeg', 'image/jpg', 'image/pjpeg', 'image/png', 'image/gif', 'image/webp'].indexOf(mime) >= 0;
 }
 
 /** Run this once from the editor to grant permissions and check your settings. */
 function test() {
-  Logger.log('Events: ' + JSON.stringify(events_().slice(0, 5), null, 2));
-  Logger.log('Photos: ' + JSON.stringify(photos_().slice(0, 5), null, 2));
+  const events = events_();
+  Logger.log('Events found: ' + events.length);
+  events.slice(0, 5).forEach(function (e) { Logger.log('  ' + e.start + '  ' + e.title); });
+
+  if (!folderId_()) {
+    Logger.log('Photos: PHOTO_FOLDER_ID is empty — paste your Drive folder ID (or link) at the top.');
+    return;
+  }
+  let folder;
+  try {
+    folder = DriveApp.getFolderById(folderId_());
+  } catch (err) {
+    Logger.log('Photos: could not open a folder with ID "' + folderId_() + '". Check PHOTO_FOLDER_ID. (' + err.message + ')');
+    return;
+  }
+  Logger.log('Photo folder: "' + folder.getName() + '"');
+  const files = folder.getFiles();
+  let total = 0, shown = 0;
+  while (files.hasNext()) {
+    const f = files.next();
+    const ok = isShowable_(f.getMimeType());
+    total++;
+    if (ok) shown++;
+    if (total <= 20) Logger.log('  ' + (ok ? '✓ ' : '✗ skipped ') + f.getName() + '  (' + f.getMimeType() + ')');
+  }
+  const subfolders = folder.getFolders().hasNext();
+  Logger.log('Photos the frame will show: ' + shown + ' of ' + total + ' files'
+    + (subfolders ? '. Note: photos inside sub-folders are not included — put them directly in this folder.' : ''));
 }
