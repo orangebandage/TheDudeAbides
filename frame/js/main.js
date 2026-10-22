@@ -19,6 +19,7 @@
     F.startCalendar();
     F.startHockey();
     F.startPhotos();
+    F.startCountdown();
     keepAwake();
 
     // Browsers only allow fullscreen after a tap; the first tap anywhere does it.

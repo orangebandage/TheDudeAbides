@@ -19,10 +19,13 @@
     var start = allDay ? new Date(ev.start + 'T00:00:00') : new Date(ev.start);
     var end = allDay ? new Date(ev.end + 'T00:00:00') : new Date(ev.end);
     return {
-      title: ev.title || '(No title)', location: ev.location, description: ev.description,
+      title: stripTag(ev.title) || '(No title)', location: ev.location, description: stripTag(ev.description),
       calendar: ev.calendar, color: ev.color, allDay: allDay, start: start, end: end,
     };
   }
+
+  // The #countdown marker is for the frame; don't show it.
+  function stripTag(text) { return text ? String(text).replace(/\s*#countdown\b/ig, '').trim() : text; }
 
   // data-ev attribute pointing back into lastEvents, so a tapped event can be looked up.
   function evAttr(ev) { return ' data-ev="' + lastEvents.indexOf(ev) + '"'; }
@@ -351,6 +354,7 @@
     return F.scriptData('events', 60000, { start: F.ymd(r.start), end: F.ymd(r.end) }).then(function (d) {
       if (seq !== loadSeq) return;            // a newer request (e.g. month change) won
       lastEvents = (d.events || []).map(parse);
+      if (d.countdowns && F.setCountdowns) F.setCountdowns(d.countdowns);
       F.el('cal-note').innerHTML = '';
       render();
     }).catch(function (err) {

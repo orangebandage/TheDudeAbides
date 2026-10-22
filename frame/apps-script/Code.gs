@@ -34,6 +34,10 @@ const ACCESS_KEY = '';
 // Largest photo (in MB) the script will send. Phone photos are usually 2–6 MB.
 const MAX_PHOTO_MB = 15;
 
+// Events with this word in their title or notes get a countdown on the frame.
+const COUNTDOWN_TAG = '#countdown';
+const COUNTDOWN_DAYS_AHEAD = 400;
+
 // ==================================================================
 
 function doGet(e) {
@@ -42,7 +46,10 @@ function doGet(e) {
     if (ACCESS_KEY && p.key !== ACCESS_KEY) throw new Error('Wrong or missing access key');
     if (p.photo) return json_(photo_(p.photo));
     const out = {};
-    if (p.what !== 'photos') out.events = events_(p.start, p.end);
+    if (p.what !== 'photos') {
+      out.events = events_(p.start, p.end);
+      out.countdowns = countdowns_();
+    }
     if (p.what !== 'events') out.photos = photos_();
     return json_(out);
   } catch (err) {
@@ -90,6 +97,31 @@ function events_(startParam, endParam) {
 
   out.sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : 0; });
   return out;
+}
+
+// The next date of every event tagged with COUNTDOWN_TAG (repeating events counted once).
+function countdowns_() {
+  const tz = Session.getScriptTimeZone();
+  const tag = COUNTDOWN_TAG.toLowerCase();
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start.getTime() + COUNTDOWN_DAYS_AHEAD * 864e5);
+  const byTitle = {};
+  CALENDAR_IDS.forEach(function (id) {
+    const cal = calendar_(id);
+    if (!cal) return;
+    cal.getEvents(start, end, { search: COUNTDOWN_TAG.replace('#', '') }).forEach(function (ev) {
+      const title = ev.getTitle() || '';
+      if ((title + ' ' + ev.getDescription()).toLowerCase().indexOf(tag) < 0) return;
+      const clean = title.replace(new RegExp('\\s*' + COUNTDOWN_TAG + '\\b', 'ig'), '').trim() || 'Countdown';
+      const day = Utilities.formatDate(ev.isAllDayEvent() ? ev.getAllDayStartDate() : ev.getStartTime(), tz, 'yyyy-MM-dd');
+      if (!byTitle[clean] || day < byTitle[clean].date) {
+        byTitle[clean] = { title: clean, date: day, color: cal.getColor() };
+      }
+    });
+  });
+  return Object.keys(byTitle).map(function (k) { return byTitle[k]; })
+    .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
 }
 
 // Event descriptions can contain HTML; the frame shows plain text.
@@ -185,6 +217,7 @@ function test() {
   });
   const events = events_();
   Logger.log('Events found: ' + events.length);
+  countdowns_().forEach(function (c) { Logger.log('  Countdown: ' + c.date + '  ' + c.title); });
   events.slice(0, 5).forEach(function (e) { Logger.log('  ' + e.start + '  ' + e.title); });
 
   if (!folderId_()) {

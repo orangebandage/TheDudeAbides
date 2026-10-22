@@ -8,6 +8,7 @@ A touch-screen dashboard for a picture frame:
   - **Tap any event** in either view to open a card with its full title, date and time, location, which calendar it's from, and its notes.
   - **Day:** the day hour by hour, like Google Calendar. All-day events sit at the top, overlapping events go side by side, and a red line marks the current time.
 - **NHL scores.** Swipe or tap the arrows to move between games, and tap the chips along the bottom to jump to one. Each game lists every goal with the scorer, their season total, the assists, the time and the score after the goal. Use the ‹ › arrows by the date to see other days. Live games update every minute. Your favourite teams come first.
+- **Countdowns.** Add `#countdown` to the title or notes of any Google Calendar event, e.g. "🎄 Christmas #countdown", and the frame shows "64 days until 🎄 Christmas" in the corner of the photo. Several countdowns take turns; tap one to see the next. Repeating events such as birthdays count down to the next one. You can also list fixed ones under `countdown.items` in `config.js`.
 - **Your photos.** A slideshow from a Google Drive folder, so you change the pictures by adding or removing them in Drive from your phone or computer. Swipe to change photos, double-tap to make the photo fill the whole screen, and tap ❚❚ to pause.
 
 It's plain HTML/CSS/JavaScript with no build step and nothing to install. The screen dims at night, stays awake, and reloads itself every few hours.

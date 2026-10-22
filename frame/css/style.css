@@ -384,6 +384,27 @@ body.cal-month #calendar-body { overflow: hidden; display: flex; }
   .wx-days { display: none; }
 }
 
+/* ---------- countdown ---------- */
+#countdown {
+  position: absolute; left: 0.8rem; bottom: 0.8rem; z-index: 3;
+  display: flex; align-items: center; gap: 0.7rem;
+  max-width: calc(100% - 5rem);
+  padding: 0.5rem 0.9rem 0.5rem 0.6rem;
+  border-radius: 14px;
+  background: rgba(8, 11, 18, 0.72);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  border-left: 4px solid var(--c);
+  cursor: pointer;
+}
+.cd-num { font-size: 2.2rem; font-weight: 700; line-height: 1; min-width: 2.4rem; text-align: center; font-variant-numeric: tabular-nums; }
+.cd-text { min-width: 0; }
+.cd-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.cd-title { font-size: 1rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cd-dots { position: absolute; right: 0.6rem; top: 0.45rem; display: flex; gap: 3px; }
+.cd-dots span { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.25); }
+.cd-dots span.on { background: var(--text); }
+.cd-text { padding-right: 1.6rem; }
+
 /* ---------- event details ---------- */
 [data-ev] { cursor: pointer; }
 .dv-ev:active, .me:active, .cal-ev:active { filter: brightness(1.3); }

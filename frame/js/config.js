@@ -71,6 +71,17 @@ window.FRAME_CONFIG = {
     ],
   },
 
+  // Countdowns, shown in the corner of the photo.
+  // Easiest: add #countdown to the title or notes of any event in Google Calendar.
+  // You can also list fixed ones here (date as 'YYYY-MM-DD'):
+  countdown: {
+    secondsEach: 8,              // when there are several, how long each one shows
+    maxShown: 5,                 // only the next N countdowns rotate through
+    items: [
+      // { title: '🎄 Christmas', date: '2026-12-25' },
+    ],
+  },
+
   // Dim the screen at night. Set enabled: false to turn off.
   nightDim: { enabled: true, fromHour: 22, toHour: 6, opacity: 0.65 },
 
