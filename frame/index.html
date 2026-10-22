@@ -33,29 +33,45 @@
       <button class="photo-pause" id="photo-pause" aria-label="Pause slideshow">❚❚</button>
     </section>
 
-    <aside id="side">
-      <section id="calendar" class="panel">
-        <h2>📅 Calendar</h2>
-        <div id="calendar-body" class="scroll"><div class="muted">Loading calendar…</div></div>
-      </section>
+    <section id="calendar" class="panel">
+      <div class="cal-head">
+        <h2 id="cal-title">📅 Calendar</h2>
+        <div id="cal-nav" class="day-switch hidden">
+          <button id="cal-today" class="today-btn hidden">Today</button>
+          <button id="cal-prev" aria-label="Previous month">‹</button>
+          <button id="cal-next" aria-label="Next month">›</button>
+        </div>
+      </div>
+      <div id="cal-note"></div>
+      <div id="calendar-body" class="scroll"><div class="muted">Loading calendar…</div></div>
+    </section>
 
-      <section id="hockey" class="panel">
-        <div class="hockey-head">
-          <h2>🏒 Hockey</h2>
-          <div class="day-switch">
-            <button id="hockey-day-prev" aria-label="Previous day">‹</button>
-            <span id="hockey-day">Today</span>
-            <button id="hockey-day-next" aria-label="Next day">›</button>
-          </div>
+    <section id="hockey" class="panel">
+      <div class="hockey-head">
+        <h2>🏒 Hockey</h2>
+        <div class="day-switch">
+          <button id="hockey-day-prev" aria-label="Previous day">‹</button>
+          <span id="hockey-day">Today</span>
+          <button id="hockey-day-next" aria-label="Next day">›</button>
         </div>
-        <div id="hockey-card" class="scroll"><div class="muted">Loading scores…</div></div>
-        <div class="hockey-foot">
-          <button class="nav-sm" id="game-prev" aria-label="Previous game">‹</button>
-          <div id="game-dots"></div>
-          <button class="nav-sm" id="game-next" aria-label="Next game">›</button>
-        </div>
-      </section>
-    </aside>
+      </div>
+      <div id="hockey-card" class="scroll"><div class="muted">Loading scores…</div></div>
+      <div class="hockey-foot">
+        <button class="nav-sm" id="game-prev" aria-label="Previous game">‹</button>
+        <div id="game-dots"></div>
+        <button class="nav-sm" id="game-next" aria-label="Next game">›</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="day-popup" class="hidden">
+    <div class="popup-card">
+      <div class="popup-head">
+        <h3 id="day-popup-title"></h3>
+        <button class="popup-close" aria-label="Close">✕</button>
+      </div>
+      <div id="day-popup-body" class="scroll"></div>
+    </div>
   </div>
 
   <div id="night-dim"></div>

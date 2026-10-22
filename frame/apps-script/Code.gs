@@ -21,7 +21,8 @@ const CALENDAR_IDS = [
   // 'family123abc@group.calendar.google.com',
 ];
 
-const DAYS_AHEAD = 14;
+const DAYS_AHEAD = 14;      // default range when the frame doesn't ask for one
+const MAX_RANGE_DAYS = 62;  // largest date range the frame may ask for (a month grid is ~42 days)
 
 // The Google Drive folder with your frame photos. Open the folder in Drive and
 // copy the last part of the URL: https://drive.google.com/drive/folders/THIS_PART
@@ -41,7 +42,7 @@ function doGet(e) {
     if (ACCESS_KEY && p.key !== ACCESS_KEY) throw new Error('Wrong or missing access key');
     if (p.photo) return json_(photo_(p.photo));
     const out = {};
-    if (p.what !== 'photos') out.events = events_();
+    if (p.what !== 'photos') out.events = events_(p.start, p.end);
     if (p.what !== 'events') out.photos = photos_();
     return json_(out);
   } catch (err) {
@@ -53,11 +54,18 @@ function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
-function events_() {
+// start/end are optional 'yyyy-MM-dd' dates sent by the frame (the month on screen).
+function events_(startParam, endParam) {
   const tz = Session.getScriptTimeZone();
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start.getTime() + (DAYS_AHEAD + 1) * 864e5);
+  let start = parseDay_(startParam);
+  let end = parseDay_(endParam);
+  if (!start) {
+    start = new Date();
+    start.setHours(0, 0, 0, 0);
+  }
+  if (!end || end <= start) end = new Date(start.getTime() + (DAYS_AHEAD + 1) * 864e5);
+  // Keep requests to a sensible size.
+  if (end - start > MAX_RANGE_DAYS * 864e5) end = new Date(start.getTime() + MAX_RANGE_DAYS * 864e5);
   const out = [];
 
   CALENDAR_IDS.forEach(function (id) {
@@ -81,6 +89,11 @@ function events_() {
 
   out.sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : 0; });
   return out;
+}
+
+function parseDay_(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || '');
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
 }
 
 function photos_() {

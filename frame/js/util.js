@@ -38,17 +38,17 @@ window.Frame = window.Frame || {};
 
   // The script response is shared by calendar + photos; fetch it once per refresh window.
   var scriptCache = {};
-  F.scriptData = function (what, maxAgeMs) {
-    var url = F.scriptUrl({ what: what });
+  F.scriptData = function (what, maxAgeMs, extra) {
+    var url = F.scriptUrl(Object.assign({ what: what }, extra || {}));
     if (!url) return Promise.reject(new Error('googleScriptUrl not set'));
-    var c = scriptCache[what];
+    var c = scriptCache[url];
     if (c && Date.now() - c.at < (maxAgeMs || 0)) return c.promise;
     var p = F.fetchJson(url, 45000).then(function (d) {
       if (d && d.error) throw new Error(d.error);
       return d;
     });
-    scriptCache[what] = { at: Date.now(), promise: p };
-    p.catch(function () { delete scriptCache[what]; });
+    scriptCache[url] = { at: Date.now(), promise: p };
+    p.catch(function () { delete scriptCache[url]; });
     return p;
   };
 

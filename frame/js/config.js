@@ -23,7 +23,11 @@ window.FRAME_CONFIG = {
   },
 
   calendar: {
-    daysAhead: 14,
+    // 'month' = full month grid like a wall calendar (tap a day to see its details)
+    // 'agenda' = list of the next few days next to a bigger photo
+    view: 'month',
+    weekStartsOnMonday: false,
+    daysAhead: 14,               // used by the 'agenda' view
     refreshMinutes: 5,
   },
 

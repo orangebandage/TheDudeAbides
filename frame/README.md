@@ -3,7 +3,7 @@
 A touch-screen dashboard for a picture frame:
 
 - **Clock and weather.** Shows the current conditions and a 4-day forecast from Open-Meteo, which is free and needs no account.
-- **Google Calendar.** Shows the next two weeks of events and stays in sync with your Google account. It can show several calendars.
+- **Google Calendar.** A full month view, like a wall calendar, that stays in sync with your Google account. Today is outlined, each event has its calendar's colour, and busy days show "+2 more". Tap any day to see everything on it, and swipe or use ‹ › to change months. It goes back to the current month after 5 minutes. It can show several calendars.
 - **NHL scores.** Swipe or tap the arrows to move between games, and tap the chips along the bottom to jump to one. Each game lists every goal with the scorer, their season total, the assists, the time and the score after the goal. Use the ‹ › arrows by the date to see other days. Live games update every minute. Your favourite teams come first.
 - **Your photos.** A slideshow from a Google Drive folder, so you change the pictures by adding or removing them in Drive from your phone or computer. Swipe to change photos, double-tap to make the photo fill the whole screen, and tap ❚❚ to pause.
 
@@ -58,6 +58,8 @@ Your calendar and photos are not made public.
 
 ## 2. Edit `js/config.js`
 
+- `calendar.view`: `'month'` (the full month grid, the default) or `'agenda'` (a list of the next two weeks beside a bigger photo).
+- `calendar.weekStartsOnMonday`: `true` if you want weeks to start on Monday.
 - `weather.latitude` / `longitude`: your home. In Google Maps, right-click your house and click the numbers to copy them.
 - `weather.units`: `'celsius'` or `'fahrenheit'`.
 - `hockey.favoriteTeams`: e.g. `['TOR']`, `['BOS', 'NYR']`. Uses the standard NHL abbreviations.

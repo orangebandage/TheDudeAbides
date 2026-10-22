@@ -47,13 +47,26 @@ code { font-size: 0.9em; background: rgba(255,255,255,.08); padding: 1px 5px; bo
   height: 100vh;
   height: 100dvh;
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr);
-  grid-template-areas:
-    "top  top"
-    "photo side";
   gap: var(--gap);
   padding: var(--gap);
+}
+/* Month view: the calendar is the star, photos + hockey on the right. */
+body.cal-month #app {
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) minmax(0, 1.15fr);
+  grid-template-areas:
+    "top top"
+    "cal photo"
+    "cal hockey";
+}
+/* Agenda view: big photo, list calendar + hockey on the right. */
+body.cal-agenda #app {
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) minmax(0, 1.25fr);
+  grid-template-areas:
+    "top top"
+    "photo cal"
+    "photo hockey";
 }
 
 #topbar {
@@ -65,13 +78,8 @@ code { font-size: 0.9em; background: rgba(255,255,255,.08); padding: 1px 5px; bo
   padding: 0 0.4rem;
 }
 #photos { grid-area: photo; }
-#side {
-  grid-area: side;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1.25fr);
-  gap: var(--gap);
-  min-height: 0;
-}
+#calendar { grid-area: cal; }
+#hockey { grid-area: hockey; }
 
 .panel {
   background: var(--panel);
@@ -160,8 +168,8 @@ code { font-size: 0.9em; background: rgba(255,255,255,.08); padding: 1px 5px; bo
 }
 .photo-pause.paused { opacity: 0.9; }
 
-body.photo-full #topbar, body.photo-full #side { display: none; }
-body.photo-full #app { grid-template-areas: "photo"; grid-template-columns: 1fr; grid-template-rows: 1fr; padding: 0; }
+body.photo-full #topbar, body.photo-full #calendar, body.photo-full #hockey { display: none; }
+body.photo-full #app { grid-template-areas: "photo" !important; grid-template-columns: 1fr !important; grid-template-rows: 1fr !important; padding: 0; }
 body.photo-full #photos { border-radius: 0; border: 0; }
 
 /* ---------- calendar ---------- */
@@ -252,18 +260,97 @@ body.photo-full #photos { border-radius: 0; border: 0; }
   z-index: 50;
 }
 
+/* ---------- month grid ---------- */
+.cal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
+.cal-head h2 { margin: 0; }
+body.cal-month #cal-title { color: var(--text); font-size: 1.25rem; }
+.today-btn { width: auto !important; padding: 0 0.8rem; font-size: 0.85rem !important; color: var(--accent); }
+body.cal-month #calendar-body { overflow: hidden; display: flex; }
+.month {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+  min-height: 0;
+}
+.mh { text-align: center; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding-bottom: 0.2rem; }
+.mc {
+  background: rgba(255,255,255,0.035);
+  border-radius: 8px;
+  padding: 0.2rem 0.25rem;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  cursor: pointer;
+}
+.mc:active { background: rgba(255,255,255,0.12); }
+.mc.other { opacity: 0.4; }
+.mc.past .mc-evs { opacity: 0.6; }
+.mc.today { background: rgba(90,176,255,0.14); box-shadow: inset 0 0 0 2px var(--accent); }
+.mc-num { font-size: 0.82rem; font-weight: 650; padding: 0 0.15rem; line-height: 1.5; }
+.mc.today .mc-num {
+  color: #04121f; background: var(--accent);
+  border-radius: 999px; align-self: flex-start; padding: 0 0.45rem;
+}
+.mc-evs { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 2px; }
+.me {
+  font-size: 0.68rem;
+  line-height: 1.3;
+  overflow: hidden;
+  flex: 0 0 auto;
+  /* up to two lines per event, then "…" */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+}
+.me.allday { display: block; white-space: nowrap; text-overflow: ellipsis; color: #0b0f17; font-weight: 600; border-radius: 4px; padding: 0 0.3rem; }
+.me-dot { display: inline-block; width: 0.5em; height: 0.5em; border-radius: 50%; margin-right: 0.25em; vertical-align: 0.05em; }
+.me-t { color: var(--muted); }
+.mc-more { font-size: 0.62rem; color: var(--accent); font-weight: 650; padding-left: 0.15rem; }
+#cal-note:empty { display: none; }
+
+/* ---------- day popup ---------- */
+#day-popup {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1.5rem;
+}
+.popup-card {
+  background: #161c28;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  width: min(32rem, 100%);
+  max-height: 80%;
+  display: flex; flex-direction: column;
+  padding: 1rem 1.2rem;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.popup-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; }
+.popup-head h3 { margin: 0; font-size: 1.2rem; }
+.popup-close { width: 2.6rem; height: 2.6rem; border-radius: 50%; background: rgba(255,255,255,0.08); font-size: 1rem; }
+
 /* ---------- portrait frames ---------- */
 @media (orientation: portrait) {
   :root { font-size: clamp(13px, 2.1vw, 24px); }
-  #app {
+  body.cal-month #app {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto minmax(0, 1.3fr) minmax(0, 1fr);
+    grid-template-areas:
+      "top top"
+      "cal cal"
+      "photo hockey";
+  }
+  body.cal-agenda #app {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto minmax(0, 1.2fr) minmax(0, 1fr);
     grid-template-areas:
       "top top"
       "photo photo"
-      "side side";
+      "cal hockey";
   }
-  #side { grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 1fr); }
   #weather { gap: 1rem; }
   .wx-days { gap: 0.6rem; }
 }
