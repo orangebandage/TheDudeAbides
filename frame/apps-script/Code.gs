@@ -69,7 +69,7 @@ function events_(startParam, endParam) {
   const out = [];
 
   CALENDAR_IDS.forEach(function (id) {
-    const cal = id === 'primary' ? CalendarApp.getDefaultCalendar() : CalendarApp.getCalendarById(id);
+    const cal = calendar_(id);
     if (!cal) return;
     const color = cal.getColor();
     cal.getEvents(start, end).forEach(function (ev) {
@@ -126,6 +126,21 @@ function photo_(id) {
   return { data: 'data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes()) };
 }
 
+// Accepts a Calendar ID, 'primary', or a Google Calendar .ics link (the ID is pulled out of it).
+function calendarId_(id) {
+  let s = String(id || '').trim();
+  const m = /calendar\.google\.com\/calendar\/ical\/([^\/]+)\//.exec(s);
+  if (m) s = m[1];
+  try { s = decodeURIComponent(s); } catch (e) {}
+  return s;
+}
+
+function calendar_(id) {
+  const cid = calendarId_(id);
+  if (!cid || /^(https?|webcal):/i.test(cid)) return null;
+  return cid === 'primary' ? CalendarApp.getDefaultCalendar() : CalendarApp.getCalendarById(cid);
+}
+
 // Accepts the bare folder ID or a whole pasted Drive folder link.
 function folderId_() {
   const s = String(PHOTO_FOLDER_ID || '').trim();
@@ -140,6 +155,21 @@ function isShowable_(mime) {
 
 /** Run this once from the editor to grant permissions and check your settings. */
 function test() {
+  Logger.log('Script account: ' + CalendarApp.getDefaultCalendar().getId());   // your main calendar's ID is your email
+  CALENDAR_IDS.forEach(function (id) {
+    const cid = calendarId_(id);
+    let cal = null, why = '';
+    try { cal = calendar_(id); } catch (err) { why = err.message; }
+    if (cal) {
+      const n = cal.getEvents(new Date(), new Date(Date.now() + DAYS_AHEAD * 864e5)).length;
+      Logger.log('✓ Calendar "' + cal.getName() + '"  (' + cid + '): ' + n + ' events in the next ' + DAYS_AHEAD + ' days');
+    } else if (/^(https?|webcal):/i.test(cid)) {
+      Logger.log('✗ "' + id + '" is not a Google Calendar link. Add it in Google Calendar first ('
+        + '+ next to "Other calendars" > From URL), then use its Calendar ID from Settings > Integrate calendar.');
+    } else {
+      Logger.log('✗ Calendar "' + cid + '" not found. Check the ID, and that it shows in this account\'s Google Calendar. ' + why);
+    }
+  });
   const events = events_();
   Logger.log('Events found: ' + events.length);
   events.slice(0, 5).forEach(function (e) { Logger.log('  ' + e.start + '  ' + e.title); });
