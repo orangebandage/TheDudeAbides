@@ -7,6 +7,7 @@
   var pos = -1;
   var timer = null, paused = false;
   var front = 'a';
+  var listLoaded = false;
   var dataCache = {};     // id -> data URL (private Drive mode)
   var cacheKeys = [];
 
@@ -87,7 +88,8 @@
   function setList(newList) {
     var current = pos >= 0 && list[order[pos]] ? list[order[pos]].key : null;
     var changed = newList.map(function (p) { return p.key; }).join('|') !== list.map(function (p) { return p.key; }).join('|');
-    if (!changed) return;
+    if (!changed && listLoaded) return;
+    listLoaded = true;
     list = newList;
     rebuildOrder(current);
     F.el('photo-empty').classList.toggle('hidden', list.length > 0);

@@ -111,6 +111,11 @@ body.cal-agenda #app {
 /* ---------- clock ---------- */
 #time { font-size: 4.2rem; font-weight: 300; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 #date { font-size: 1.25rem; color: var(--muted); margin-top: 0.3rem; }
+#world-clocks { display: flex; gap: 1.6rem; margin-right: auto; border-left: 1px solid var(--panel-border); padding-left: 1.6rem; }
+#world-clocks:empty { display: none; }
+.wc-label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.wc-time { font-size: 1.6rem; font-weight: 300; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wc-day { font-size: 0.7rem; color: var(--accent); font-weight: 500; }
 
 /* ---------- weather ---------- */
 #weather { display: flex; align-items: center; gap: 2rem; }
@@ -364,7 +369,9 @@ body.cal-month #calendar-body { overflow: hidden; display: flex; }
       "photo photo"
       "cal hockey";
   }
-  #weather { gap: 1rem; }
+  #topbar { flex-wrap: wrap; row-gap: 0.6rem; }
+  #world-clocks { margin-right: 0; }
+  #weather { gap: 1rem; flex: 1 1 100%; justify-content: space-between; }
   .wx-days { gap: 0.6rem; }
 }
 

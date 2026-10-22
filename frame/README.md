@@ -64,6 +64,7 @@ Your calendar and photos are not made public.
 - `calendar.dayViewStartHour` / `dayViewEndHour`: the hours shown in Day view (7am to 10pm by default). It stretches automatically for earlier or later events.
 - `calendar.weekStartsOnMonday`: `true` if you want weeks to start on Monday.
 - `weather.latitude` / `longitude`: your home. In Google Maps, right-click your house and click the numbers to copy them.
+- `worldClocks`: extra clocks next to the main one. It's set to Ontario and London; add, remove or rename them, using [time zone names](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) such as `America/Toronto` or `Europe/London`.
 - `weather.units`: `'celsius'` or `'fahrenheit'`.
 - `hockey.favoriteTeams`: e.g. `['TOR']`, `['BOS', 'NYR']`. Uses the standard NHL abbreviations.
 - `hockey.showYesterdayUntilHour`: in the morning it shows last night's results; after this hour it switches to today.

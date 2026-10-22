@@ -13,11 +13,18 @@ window.FRAME_CONFIG = {
   // Clock
   use24HourClock: false,
 
+  // Extra clocks shown next to the main clock (which uses the frame's own time).
+  // timeZone names: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+  worldClocks: [
+    { label: 'Ontario', timeZone: 'America/Toronto' },
+    { label: 'London', timeZone: 'Europe/London' },
+  ],
+
   weather: {
     // Change these to your home. Find coordinates by right-clicking a spot in Google Maps.
-    latitude: 43.6532,
-    longitude: -79.3832,
-    locationName: 'Home',
+    latitude: 49.2193,
+    longitude: -122.5984,
+    locationName: 'Maple Ridge',
     units: 'celsius',            // 'celsius' or 'fahrenheit'
     refreshMinutes: 15,
   },
