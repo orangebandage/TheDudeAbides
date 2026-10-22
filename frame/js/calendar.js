@@ -286,7 +286,7 @@
   function load() {
     if (!F.cfg.googleScriptUrl) {
       var msg = '<div class="empty-sm">Connect your Google Calendar:<br>'
-        + '<span class="muted small">set <code>googleScriptUrl</code> in <code>js/config.js</code> (see README)</span></div>';
+        + '<button class="setup-link" onclick="FrameSetup.open()">Set up</button></div>';
       if (layout === 'agenda') F.el('calendar-body').innerHTML = msg;
       else { F.el('cal-note').innerHTML = msg; render(); }
       return;

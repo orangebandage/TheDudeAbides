@@ -5,9 +5,11 @@ window.FRAME_CONFIG = {
   // The "Web app URL" you get after deploying apps-script/Code.gs
   // (looks like https://script.google.com/macros/s/XXXX/exec).
   // This powers both the Google Calendar and the Google Drive photos.
+  // Best left EMPTY: the frame asks for it on first start and saves it on the device only,
+  // so it never ends up in GitHub. (Press and hold the big clock to change it later.)
   googleScriptUrl: '',
 
-  // Optional shared secret. If you set ACCESS_KEY in Code.gs, put the same value here.
+  // Optional shared secret. If you set ACCESS_KEY in Code.gs, enter the same value on the frame.
   accessKey: '',
 
   // Clock
@@ -57,7 +59,7 @@ window.FRAME_CONFIG = {
   photos: {
     // How much room the photo gets next to the hockey scores: 'small', 'medium' or 'large'.
     // (Double-tap the photo on the frame to see it full screen.)
-    size: 'small',
+    size: 'medium',
     intervalSeconds: 30,
     shuffle: true,
     refreshListMinutes: 30,      // how often to check the Drive folder for new/removed photos

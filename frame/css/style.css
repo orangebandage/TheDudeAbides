@@ -383,3 +383,35 @@ body.cal-month #calendar-body { overflow: hidden; display: flex; }
 @media (max-width: 700px) and (orientation: landscape) {
   .wx-days { display: none; }
 }
+
+/* ---------- on-device setup ---------- */
+#setup {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+  -webkit-user-select: text; user-select: text;
+}
+.setup-card {
+  background: #161c28; border: 1px solid var(--panel-border); border-radius: var(--radius);
+  width: min(34rem, 100%); padding: 1.2rem 1.4rem;
+  display: flex; flex-direction: column; gap: 0.8rem;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.setup-card h3 { margin: 0; font-size: 1.2rem; }
+.setup-card p { margin: 0; line-height: 1.45; }
+.setup-card label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; color: var(--muted); }
+.setup-card input {
+  font: inherit; font-size: 16px; color: var(--text);
+  background: rgba(255,255,255,0.06); border: 1px solid var(--panel-border); border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+}
+.setup-card input:focus { outline: 2px solid var(--accent); }
+.setup-msg:empty { display: none; }
+.setup-msg.bad { color: #ff8a95; }
+.setup-msg.good { color: var(--good); }
+.setup-btns { display: flex; gap: 0.5rem; }
+.setup-btns button, .setup-link { padding: 0.65rem 1.1rem; border-radius: 10px; background: rgba(255,255,255,0.08); }
+.setup-btns .setup-save, .setup-link { background: var(--accent); color: #04121f; font-weight: 650; }
+.setup-forget { color: var(--muted); }
+.setup-link { margin-top: 0.6rem; }

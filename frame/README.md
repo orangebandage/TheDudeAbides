@@ -46,7 +46,7 @@ Your calendar and photos are not made public.
    - *Execute as:* **Me**
    - *Who has access:* **Anyone**
    - Click **Deploy** and copy the **Web app URL** (`https://script.google.com/macros/s/.../exec`).
-6. Open `js/config.js` and paste the URL into `googleScriptUrl`. If you set an `ACCESS_KEY`, put the same word in `accessKey`.
+6. Keep the URL and access key handy. You'll type them into the frame the first time it starts (see step 3). They're saved only on that device, never in GitHub.
 
 > If you later edit `Code.gs`, use **Deploy → Manage deployments → ✏️ Edit → Version: New version** so the
 > URL stays the same.
@@ -71,25 +71,41 @@ Your calendar and photos are not made public.
 - `photos.size`: `'small'`, `'medium'` or `'large'`, the room the photo gets next to the hockey scores.
 - `photos.intervalSeconds`, `photos.shuffle`, `nightDim`, `use24HourClock`: adjust to taste.
 
-## 3. Put it on the frame
+## 3. Put it on the frame or iPad
 
-The frame needs a web browser, which most Android-based touch-screen frames have. Choose one of these:
+### a) Publish the app with GitHub Pages (free, one time)
 
-**A. Host it online (easiest to update).** Upload the `frame/` folder to any static host and open the address on the frame:
-- **Netlify Drop**: drag the `frame` folder onto <https://app.netlify.com/drop>.
-- **GitHub Pages**: works if the repo is public, or on a paid GitHub plan. In the repo, go to Settings → Pages.
+1. On GitHub, open the repository and go to **Settings → Pages**.
+2. Under **Build and deployment**, set *Source* to **Deploy from a branch**. Then choose the branch that has the `frame` folder and the **/(root)** folder, and click **Save**.
+3. After a minute or two the app is live at **`https://<your-username>.github.io/<repo-name>/frame/`**.
 
-  ⚠️ If you host it publicly, set an `ACCESS_KEY`. Otherwise anyone who finds your script URL could read your calendar.
+Any change pushed to that branch goes live within a couple of minutes. A frame that's already running picks it up at its next automatic reload (every 6 hours) or when you restart it.
 
-**B. Copy it onto the frame.** Copy the `frame` folder to the frame's storage and open `index.html` in its browser.
+> The app's code is public, but your calendar and photos are not. The script address and access key are typed in on
+> each device and stored only there.
 
-**Best browser setup (Android frames):** install **Fully Kiosk Browser** from the Play Store. Set the start URL to your
-address and turn on *Keep screen on*, *Fullscreen* and *Autostart on boot*. This makes the frame boot straight into the
-dashboard. In a normal browser, tap once and the page goes fullscreen.
+### b) iPad
+
+1. Open the address above in **Safari**.
+2. Tap the **Share** button (□↑) → **Add to Home Screen** → **Add**. You now have a **Family Frame** app icon.
+3. Open the app from the home screen. It runs full screen with no Safari bars.
+4. The first time, it asks for the **Web app URL** and **access key**. Paste them and tap **Test & save**.
+5. To keep the screen on, go to **Settings → Display & Brightness → Auto-Lock → Never**, and keep the iPad plugged in.
+6. Optional: use **Guided Access** to lock the iPad to the app. Turn it on in Settings → Accessibility → Guided Access, then triple-click the top or Home button inside the app.
+
+### c) Android-based digital frame
+
+1. Install **Fully Kiosk Browser** from the Play Store. Or use the frame's built-in browser.
+2. Set the *Start URL* to the address above, and turn on *Keep screen on*, *Fullscreen* and *Start on boot*.
+3. Enter the URL and access key when the setup screen appears.
+
+Many photo-only frames (most Aura, Nixplay and Skylight models) can't run apps or web pages. This app needs a frame that has a web browser.
+
+**To change the connection later**, press and hold the big clock for 2 seconds to open the setup screen again.
 
 ## Try it on a computer first
 
-Open `frame/index.html` in Chrome or Edge. Weather and hockey work straight away. The calendar and photos need step 1.
+Open `frame/index.html` in Chrome or Edge. Weather and hockey work straight away. For the calendar and photos, enter your script URL and access key on the setup screen.
 To test photos without Google, put files in `frame/photos/` and list them in `photos.local` in `config.js`.
 
 ## Where the data comes from
