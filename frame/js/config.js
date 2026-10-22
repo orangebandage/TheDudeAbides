@@ -23,10 +23,15 @@ window.FRAME_CONFIG = {
   },
 
   calendar: {
-    // 'month' = full month grid like a wall calendar (tap a day to see its details)
-    // 'agenda' = list of the next few days next to a bigger photo
+    // Which view the frame starts on (and returns to after 5 minutes untouched):
+    //   'month'  = full month grid like a wall calendar
+    //   'day'    = today hour by hour
+    //   Tap Day / Month on the frame to switch; tap a date in the month to open that day.
+    //   'agenda' = a simple list of the next few days next to a bigger photo (no Day/Month switch)
     view: 'month',
     weekStartsOnMonday: false,
+    dayViewStartHour: 7,         // hours shown in the day view (it stretches for earlier/later events)
+    dayViewEndHour: 22,
     daysAhead: 14,               // used by the 'agenda' view
     refreshMinutes: 5,
   },

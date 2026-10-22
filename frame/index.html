@@ -37,6 +37,10 @@
       <div class="cal-head">
         <h2 id="cal-title">📅 Calendar</h2>
         <div id="cal-nav" class="day-switch hidden">
+          <div class="seg">
+            <button id="cal-mode-day">Day</button>
+            <button id="cal-mode-month">Month</button>
+          </div>
           <button id="cal-today" class="today-btn hidden">Today</button>
           <button id="cal-prev" aria-label="Previous month">‹</button>
           <button id="cal-next" aria-label="Next month">›</button>
@@ -62,16 +66,6 @@
         <button class="nav-sm" id="game-next" aria-label="Next game">›</button>
       </div>
     </section>
-  </div>
-
-  <div id="day-popup" class="hidden">
-    <div class="popup-card">
-      <div class="popup-head">
-        <h3 id="day-popup-title"></h3>
-        <button class="popup-close" aria-label="Close">✕</button>
-      </div>
-      <div id="day-popup-body" class="scroll"></div>
-    </div>
   </div>
 
   <div id="night-dim"></div>

@@ -3,7 +3,9 @@
 A touch-screen dashboard for a picture frame:
 
 - **Clock and weather.** Shows the current conditions and a 4-day forecast from Open-Meteo, which is free and needs no account.
-- **Google Calendar.** A full month view, like a wall calendar, that stays in sync with your Google account. Today is outlined, each event has its calendar's colour, and busy days show "+2 more". Tap any day to see everything on it, and swipe or use ‹ › to change months. It goes back to the current month after 5 minutes. It can show several calendars.
+- **Google Calendar, with Day and Month views.** It stays in sync with your Google account and can show several calendars. Tap **Day | Month** to switch views, ‹ › to move, and **Today** to jump back. Swipe left or right to move too. After 5 minutes untouched, it goes back to the starting view on today.
+  - **Month:** a full wall-calendar grid. Today is outlined, each event has its calendar's colour, and busy days show "+2 more". Tap any date to open it in Day view.
+  - **Day:** the day hour by hour, like Google Calendar. All-day events sit at the top, overlapping events go side by side, and a red line marks the current time.
 - **NHL scores.** Swipe or tap the arrows to move between games, and tap the chips along the bottom to jump to one. Each game lists every goal with the scorer, their season total, the assists, the time and the score after the goal. Use the ‹ › arrows by the date to see other days. Live games update every minute. Your favourite teams come first.
 - **Your photos.** A slideshow from a Google Drive folder, so you change the pictures by adding or removing them in Drive from your phone or computer. Swipe to change photos, double-tap to make the photo fill the whole screen, and tap ❚❚ to pause.
 
@@ -58,7 +60,8 @@ Your calendar and photos are not made public.
 
 ## 2. Edit `js/config.js`
 
-- `calendar.view`: `'month'` (the full month grid, the default) or `'agenda'` (a list of the next two weeks beside a bigger photo).
+- `calendar.view`: which view the frame starts on. Use `'month'` (the default) or `'day'`; you can switch between them on the frame. `'agenda'` instead shows a simple list of the next two weeks beside a bigger photo.
+- `calendar.dayViewStartHour` / `dayViewEndHour`: the hours shown in Day view (7am to 10pm by default). It stretches automatically for earlier or later events.
 - `calendar.weekStartsOnMonday`: `true` if you want weeks to start on Monday.
 - `weather.latitude` / `longitude`: your home. In Google Maps, right-click your house and click the numbers to copy them.
 - `weather.units`: `'celsius'` or `'fahrenheit'`.
