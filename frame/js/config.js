@@ -71,12 +71,13 @@ window.FRAME_CONFIG = {
     ],
   },
 
-  // Countdowns, shown in the corner of the photo.
+  // Countdowns, listed on the ⏳ Countdowns tab next to Hockey.
   // Easiest: add #countdown to the title or notes of any event in Google Calendar.
   // You can also list fixed ones here (date as 'YYYY-MM-DD'):
   countdown: {
-    secondsEach: 8,              // when there are several, how long each one shows
-    maxShown: 5,                 // only the next N countdowns rotate through
+    showOnPhoto: false,          // true = also show a small rotating countdown badge on the photo
+    secondsEach: 8,              // (badge) how long each countdown shows
+    maxShown: 5,                 // (badge) only the next N countdowns rotate through
     items: [
       // { title: '🎄 Christmas', date: '2026-12-25' },
     ],

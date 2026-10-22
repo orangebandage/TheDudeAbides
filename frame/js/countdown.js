@@ -1,5 +1,5 @@
-// Countdowns: a rotating "N days until …" badge on the photo, and a full list
-// on the ⏳ Countdowns tab of the hockey panel.
+// Countdowns: a full list on the ⏳ Countdowns tab of the hockey panel, and optionally
+// (countdown.showOnPhoto) a rotating "N days until …" badge on the photo.
 // They come from Google Calendar events tagged #countdown, plus any in config.countdown.items.
 (function (F) {
   var C = F.cfg.countdown || {};
@@ -40,7 +40,7 @@
   function renderBadge() {
     var box = F.el('countdown');
     var list = upcoming(C.maxShown || 5);
-    if (!list.length) { box.classList.add('hidden'); return; }
+    if (!C.showOnPhoto || !list.length) { box.classList.add('hidden'); return; }
     index = index % list.length;
     var c = list[index];
     var n = daysUntil(c.date);
