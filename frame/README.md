@@ -5,6 +5,7 @@ A touch-screen dashboard for a picture frame:
 - **Clock and weather.** Shows the current conditions and a 4-day forecast from Open-Meteo, which is free and needs no account.
 - **Google Calendar, with Day and Month views.** It stays in sync with your Google account and can show several calendars. Tap **Day | Month** to switch views, ‹ › to move, and **Today** to jump back. Swipe left or right to move too. After 5 minutes untouched, it goes back to the starting view on today.
   - **Month:** a full wall-calendar grid. Today is outlined, each event has its calendar's colour, and busy days show "+2 more". Tap any date to open it in Day view.
+  - **Tap any event** in either view to open a card with its full title, date and time, location, which calendar it's from, and its notes.
   - **Day:** the day hour by hour, like Google Calendar. All-day events sit at the top, overlapping events go side by side, and a red line marks the current time.
 - **NHL scores.** Swipe or tap the arrows to move between games, and tap the chips along the bottom to jump to one. Each game lists every goal with the scorer, their season total, the assists, the time and the score after the goal. Use the ‹ › arrows by the date to see other days. Live games update every minute. Your favourite teams come first.
 - **Your photos.** A slideshow from a Google Drive folder, so you change the pictures by adding or removing them in Drive from your phone or computer. Swipe to change photos, double-tap to make the photo fill the whole screen, and tap ❚❚ to pause.

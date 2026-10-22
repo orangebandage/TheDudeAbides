@@ -18,8 +18,14 @@
     var allDay = !!ev.allDay;
     var start = allDay ? new Date(ev.start + 'T00:00:00') : new Date(ev.start);
     var end = allDay ? new Date(ev.end + 'T00:00:00') : new Date(ev.end);
-    return { title: ev.title || '(No title)', location: ev.location, color: ev.color, allDay: allDay, start: start, end: end };
+    return {
+      title: ev.title || '(No title)', location: ev.location, description: ev.description,
+      calendar: ev.calendar, color: ev.color, allDay: allDay, start: start, end: end,
+    };
   }
+
+  // data-ev attribute pointing back into lastEvents, so a tapped event can be looked up.
+  function evAttr(ev) { return ' data-ev="' + lastEvents.indexOf(ev) + '"'; }
 
   function dayStart(d) { var x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
   function monthOf(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
@@ -47,7 +53,7 @@
   function eventRow(ev, d, now) {
     var time = ev.allDay ? 'All day' : (ev.start < dayStart(d) ? '…' : F.formatTime(ev.start));
     var happening = !ev.allDay && ev.start <= now && ev.end > now;
-    return '<div class="cal-ev' + (happening ? ' now' : '') + '">'
+    return '<div class="cal-ev' + (happening ? ' now' : '') + '"' + evAttr(ev) + '>'
       + '<span class="cal-bar" style="background:' + color(ev) + '"></span>'
       + '<span class="cal-time">' + time + '</span>'
       + '<span class="cal-title">' + F.esc(ev.title)
@@ -114,8 +120,8 @@
         + '<div class="mc-num">' + d.getDate() + '</div>'
         + '<div class="mc-evs">' + list.map(function (ev) {
           return isAllDayOn(ev, d)
-            ? '<div class="me allday" style="background:' + color(ev) + '">' + F.esc(ev.title) + '</div>'
-            : '<div class="me"><span class="me-dot" style="background:' + color(ev) + '"></span><span class="me-t">' + shortTime(ev.start) + '</span> ' + F.esc(ev.title) + '</div>';
+            ? '<div class="me allday"' + evAttr(ev) + ' style="background:' + color(ev) + '">' + F.esc(ev.title) + '</div>'
+            : '<div class="me"' + evAttr(ev) + '><span class="me-dot" style="background:' + color(ev) + '"></span><span class="me-t">' + shortTime(ev.start) + '</span> ' + F.esc(ev.title) + '</div>';
         }).join('') + '</div>'
         + '<div class="mc-more hidden"></div>'
         + '</div>';
@@ -193,7 +199,7 @@
       var ev = x.ev;
       var happening = ev.start <= now && ev.end > now;
       var past = ev.end <= now;
-      return '<div class="dv-ev' + (happening ? ' now' : '') + (past ? ' past' : '') + (x.e - x.s <= 0.8 ? ' short' : '') + '"'
+      return '<div class="dv-ev' + (happening ? ' now' : '') + (past ? ' past' : '') + (x.e - x.s <= 0.8 ? ' short' : '') + '"' + evAttr(ev)
         + ' style="top:' + pct(x.s) + ';height:calc(' + pct(h0 + (x.e - x.s)) + ' - 2px);'
         + 'left:calc(' + (x.col / x.cols * 100) + '% + 2px);width:calc(' + (100 / x.cols) + '% - 4px);'
         + '--c:' + color(ev) + '">'
@@ -209,7 +215,7 @@
 
     F.el('calendar-body').innerHTML = '<div class="dayview">'
       + (allDay.length ? '<div class="dv-allday">' + allDay.map(function (ev) {
-        return '<div class="me allday" style="background:' + color(ev) + '">' + F.esc(ev.title) + '</div>';
+        return '<div class="me allday"' + evAttr(ev) + ' style="background:' + color(ev) + '">' + F.esc(ev.title) + '</div>';
       }).join('') + '</div>' : '')
       + '<div class="dv-grid">' + hours
       + '<div class="dv-events">' + blocks + nowLine + '</div>'
@@ -217,9 +223,58 @@
       + '</div></div>';
   }
 
+  // ---------- event details ----------
+  // "emily.e.bos@gmail.com" -> "Emily"; other calendar names are shown as they are.
+  function calendarLabel(name) {
+    var m = /^([^.@]+)[^@]*@/.exec(name || '');
+    return m ? m[1].charAt(0).toUpperCase() + m[1].slice(1) : (name || '');
+  }
+
+  function whenText(ev) {
+    var longDay = { weekday: 'long', month: 'long', day: 'numeric' };
+    var shortDay = { weekday: 'short', month: 'short', day: 'numeric' };
+    if (ev.allDay) {
+      var last = F.addDays(ev.end, -1);
+      return F.sameDay(ev.start, last)
+        ? ev.start.toLocaleDateString([], longDay) + ' · All day'
+        : ev.start.toLocaleDateString([], shortDay) + ' – ' + last.toLocaleDateString([], shortDay) + ' · All day';
+    }
+    if (F.sameDay(ev.start, ev.end) || +ev.end === +F.addDays(dayStart(ev.start), 1)) {
+      return ev.start.toLocaleDateString([], longDay) + '<br>' + F.formatTime(ev.start) + ' – ' + F.formatTime(ev.end);
+    }
+    return ev.start.toLocaleDateString([], shortDay) + ', ' + F.formatTime(ev.start)
+      + ' – ' + ev.end.toLocaleDateString([], shortDay) + ', ' + F.formatTime(ev.end);
+  }
+
+  function showEvent(ev) {
+    lastTouch = Date.now();
+    closeEvent();
+    var box = document.createElement('div');
+    box.id = 'ev-popup';
+    box.innerHTML = '<div class="ev-card" style="--c:' + color(ev) + '">'
+      + '<div class="ev-head"><h3>' + F.esc(ev.title) + '</h3>'
+      + '<button class="ev-close" aria-label="Close">✕</button></div>'
+      + '<div class="ev-row">🕒 <span>' + whenText(ev) + '</span></div>'
+      + (ev.location ? '<div class="ev-row">📍 <span>' + F.esc(ev.location) + '</span></div>' : '')
+      + (ev.calendar ? '<div class="ev-row"><span class="ev-dot"></span> <span>' + F.esc(calendarLabel(ev.calendar)) + '</span></div>' : '')
+      + (ev.description ? '<div class="ev-desc scroll">' + F.esc(ev.description) + '</div>' : '')
+      + '</div>';
+    box.addEventListener('click', function (e) {
+      if (e.target === box || e.target.closest('.ev-close')) closeEvent();
+    });
+    document.body.appendChild(box);
+    showEvent.timer = setTimeout(closeEvent, 60000);
+  }
+
+  function closeEvent() {
+    clearTimeout(showEvent.timer);
+    var old = F.el('ev-popup');
+    if (old) old.remove();
+  }
+
   // ---------- navigation ----------
   function shift(delta) {
-    lastTouch = lastShift = Date.now();
+    lastTouch = Date.now();
     if (mode === 'day') {
       var oldMonth = monthOf(shownDay);
       shownDay = F.addDays(shownDay, delta);
@@ -324,14 +379,25 @@
         setMode('day', sameMonth(shownMonth, new Date()) ? new Date() : shownMonth);
       };
       F.el('cal-mode-month').onclick = function () { setMode('month'); };
-      F.onSwipe(F.el('calendar-body'), function () { shift(1); }, function () { shift(-1); });
+      // lastShift stops the end of a swipe from also counting as a tap on a day or event.
+      F.onSwipe(F.el('calendar-body'),
+        function () { lastShift = Date.now(); shift(1); },
+        function () { lastShift = Date.now(); shift(-1); });
       // Tap a day in the month grid to open it in day view.
       F.el('calendar-body').addEventListener('click', function (e) {
+        if (e.target.closest('[data-ev]')) return;   // handled below
         var cell = e.target.closest('.mc');
         if (cell && Date.now() - lastShift > 500) setMode('day', new Date(cell.getAttribute('data-day') + 'T00:00:00'));
       });
       window.addEventListener('resize', function () { render(); });
     }
+
+    // Tap any event to see all its details.
+    F.el('calendar-body').addEventListener('click', function (e) {
+      var el = e.target.closest('[data-ev]');
+      var ev = el && lastEvents && lastEvents[+el.getAttribute('data-ev')];
+      if (ev && Date.now() - lastShift > 500) showEvent(ev);
+    });
 
     render();
     load();

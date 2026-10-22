@@ -81,6 +81,7 @@ function events_(startParam, endParam) {
         start: allDay ? Utilities.formatDate(ev.getAllDayStartDate(), tz, 'yyyy-MM-dd') : ev.getStartTime().toISOString(),
         end: allDay ? Utilities.formatDate(ev.getAllDayEndDate(), tz, 'yyyy-MM-dd') : ev.getEndTime().toISOString(),
         location: ev.getLocation() || '',
+        description: plainText_(ev.getDescription()),
         color: color,
         calendar: cal.getName(),
       });
@@ -89,6 +90,18 @@ function events_(startParam, endParam) {
 
   out.sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : 0; });
   return out;
+}
+
+// Event descriptions can contain HTML; the frame shows plain text.
+function plainText_(html) {
+  const text = String(html || '')
+    .replace(/<br\s*\/?>|<\/p>|<\/div>|<\/li>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return text.length > 1500 ? text.slice(0, 1500) + '…' : text;
 }
 
 function parseDay_(s) {
