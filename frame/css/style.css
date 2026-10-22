@@ -76,7 +76,7 @@ body.cal-agenda #app {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 2rem;
+  gap: 1.3rem;
   padding: 0 0.4rem;
 }
 #photos { grid-area: photo; }
@@ -113,10 +113,31 @@ body.cal-agenda #app {
 /* ---------- clock ---------- */
 #time { font-size: 4.2rem; font-weight: 300; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 #time .ampm { font-size: 1.5rem; font-weight: 400; letter-spacing: 0.02em; margin-left: 0.35rem; color: var(--muted); }
-#date { font-size: 1.25rem; color: var(--muted); margin-top: 0.3rem; }
-#world-clocks { display: flex; gap: 1.6rem; margin-right: auto; border-left: 1px solid var(--panel-border); padding-left: 1.6rem; }
+#date { font-size: 1.25rem; color: var(--muted); margin-top: 0.3rem; white-space: nowrap; }
+#world-clocks { display: flex; gap: 1.3rem; border-left: 1px solid var(--panel-border); padding-left: 1.3rem; }
+#laundry { margin-right: auto; border-left: 1px solid var(--panel-border); padding-left: 1.3rem; cursor: pointer; }
+#laundry:active { opacity: 0.7; }
+.ld-dot { display: inline-block; width: 0.55em; height: 0.55em; border-radius: 50%; margin-right: 0.4rem; vertical-align: 0.12em; }
+.ld-none { font-size: 1rem; color: var(--muted); }
+#ld-popup {
+  position: fixed; inset: 0; z-index: 45;
+  background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1.5rem;
+}
+.ld-card {
+  background: #161c28; border: 1px solid var(--panel-border); border-radius: var(--radius);
+  width: min(24rem, 100%); padding: 1.1rem 1.3rem 0.8rem;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.ld-card h3 { margin: 0 0 0.5rem; font-size: 1.15rem; }
+.ld-card p { margin: 0 0 0.6rem; line-height: 1.4; }
+.ld-last { font-size: 0.95rem; }
+.ld-btns { display: flex; gap: 0.6rem; }
+.ld-btns button { flex: 1; padding: 0.8rem; border-radius: 12px; font-size: 1.05rem; font-weight: 700; color: #0b0f17; }
+.ld-cancel { display: block; margin: 0.6rem auto 0; padding: 0.4rem 1rem; color: var(--muted); }
 #world-clocks:empty { display: none; }
-.wc-label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.wc-label { white-space: nowrap; font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .wc-time { font-size: 1.6rem; font-weight: 300; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .wc-day { font-size: 0.7rem; color: var(--accent); font-weight: 500; }
 
@@ -126,8 +147,8 @@ body.cal-agenda #app {
 .wx-icon { font-size: 3.4rem; line-height: 1; }
 .wx-temp { font-size: 2.6rem; font-weight: 300; line-height: 1; }
 .wx-desc { font-size: 1rem; }
-.wx-meta { font-size: 0.8rem; margin-top: 0.15rem; }
-.wx-days { display: flex; gap: 1.1rem; }
+.wx-meta { font-size: 0.8rem; margin-top: 0.15rem; white-space: nowrap; }
+.wx-days { display: flex; gap: 0.8rem; }
 .wx-day { text-align: center; font-size: 0.85rem; min-width: 3.2rem; }
 .wx-dname { color: var(--muted); }
 .wx-dicon { font-size: 1.6rem; line-height: 1.4; }
@@ -376,6 +397,8 @@ body.cal-month #calendar-body { overflow: hidden; display: flex; }
   }
   #topbar { flex-wrap: wrap; row-gap: 0.6rem; }
   #world-clocks { margin-right: 0; }
+  #laundry { margin-right: 0; }
+  .hockey-head { flex-wrap: wrap; row-gap: 0.4rem; }
   #weather { gap: 1rem; flex: 1 1 100%; justify-content: space-between; }
   .wx-days { gap: 0.6rem; }
 }

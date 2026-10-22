@@ -83,6 +83,16 @@ window.FRAME_CONFIG = {
     ],
   },
 
+  // Laundry card: who filled it last (next to the world clocks). Tap it on the frame to
+  // see the date and record a new fill. Saved on the device.
+  laundry: {
+    enabled: true,
+    people: [
+      { name: 'Emily', color: '#f6bf26' },
+      { name: 'Elliott', color: '#5ab0ff' },
+    ],
+  },
+
   // true  = stop the screen from going to sleep (best when the device is always plugged in).
   // false = let the device's own Auto-Lock put it to sleep to save battery; tap to wake and
   //         the frame refreshes straight away.

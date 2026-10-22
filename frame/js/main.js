@@ -33,6 +33,7 @@
     F.startHockey();
     F.startPhotos();
     F.startCountdown();
+    F.startLaundry();
     if (F.cfg.keepScreenOn) keepAwake();
     refreshOnWake();
 
