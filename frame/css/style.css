@@ -435,6 +435,25 @@ body.cal-month #calendar-body { overflow: hidden; display: flex; }
 #hockey.show-other .hockey-only { display: none !important; }
 .hockey-head { flex-wrap: wrap; row-gap: 0.4rem; }
 
+/* ---------- countdown list ---------- */
+.cdl-row {
+  display: grid;
+  grid-template-columns: 5px 2.6rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.2rem;
+  border-bottom: 1px solid var(--panel-border);
+}
+.cdl-row:last-child { border-bottom: 0; }
+.cdl-bar { align-self: stretch; border-radius: 3px; background: var(--c); }
+.cdl-icon { font-size: 1.9rem; line-height: 1; text-align: center; }
+.cdl-title { font-size: 1.05rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cdl-date { font-size: 0.85rem; color: var(--muted); margin-top: 0.1rem; }
+.cdl-days { text-align: right; line-height: 1.1; }
+.cdl-num { font-size: 1.7rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cdl-unit { font-size: 0.78rem; color: var(--muted); }
+.cdl-row.today .cdl-num { color: var(--good); }
+
 /* ---------- meals tab ---------- */
 .ml-row {
   display: grid; grid-template-columns: 7.2rem minmax(0, 1fr); align-items: center;
