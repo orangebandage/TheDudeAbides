@@ -3,7 +3,6 @@
 // They come from Google Calendar events tagged #countdown, plus any in config.countdown.items.
 (function (F) {
   var C = F.cfg.countdown || {};
-  var TAB_KEY = 'familyFrame.tab';
   var fromCalendar = [];
   var index = 0;
   var timer = null;
@@ -85,31 +84,15 @@
 
   function render() { renderBadge(); renderList(); }
 
-  // ---------- tabs ----------
-  function showTab(name) {
-    var countdown = name === 'countdown';
-    F.el('hockey').classList.toggle('show-countdown', countdown);
-    F.el('countdown-list').classList.toggle('hidden', !countdown);
-    F.el('tab-hockey').classList.toggle('on', !countdown);
-    F.el('tab-countdown').classList.toggle('on', countdown);
-    try { localStorage.setItem(TAB_KEY, name); } catch (e) {}
-  }
-
   F.setCountdowns = function (list) {
     fromCalendar = (list || []).map(function (c) { return { title: c.title, date: c.date, color: c.color }; });
     render();
   };
 
   F.startCountdown = function () {
-    F.el('tab-hockey').onclick = function () { showTab('hockey'); };
-    F.el('tab-countdown').onclick = function () { showTab('countdown'); };
-    var saved = null;
-    try { saved = localStorage.getItem(TAB_KEY); } catch (e) {}
-    showTab(saved === 'countdown' ? 'countdown' : 'hockey');
-
     // Tap the badge on the photo to open the full list.
     var badge = F.el('countdown');
-    badge.addEventListener('click', function (e) { e.stopPropagation(); showTab('countdown'); });
+    badge.addEventListener('click', function (e) { e.stopPropagation(); F.showTab('countdown'); });
     badge.addEventListener('pointerup', function (e) { e.stopPropagation(); });   // not a photo double-tap
 
     render();

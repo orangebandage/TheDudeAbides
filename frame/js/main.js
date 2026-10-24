@@ -32,7 +32,9 @@
     F.startCalendar();
     F.startHockey();
     F.startPhotos();
+    F.startTabs();
     F.startCountdown();
+    F.startMeals();
     F.startLaundry();
     if (F.cfg.keepScreenOn) keepAwake();
     refreshOnWake();

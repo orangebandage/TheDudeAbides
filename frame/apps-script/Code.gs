@@ -38,6 +38,10 @@ const MAX_PHOTO_MB = 15;
 const COUNTDOWN_TAG = '#countdown';
 const COUNTDOWN_DAYS_AHEAD = 400;
 
+// Google Sheet with your weekly meal plan: column A = day (Sunday…Saturday), column B = meal.
+// Paste the sheet's link or ID between the quotes. Leave empty if you don't use it.
+const MEALS_SHEET = '';
+
 // ==================================================================
 
 function doGet(e) {
@@ -49,6 +53,7 @@ function doGet(e) {
     if (p.what !== 'photos') {
       out.events = events_(p.start, p.end);
       out.countdowns = countdowns_();
+      out.meals = meals_();
     }
     if (p.what !== 'events') out.photos = photos_();
     return json_(out);
@@ -196,6 +201,18 @@ function calendar_(id) {
 }
 
 // Accepts the bare folder ID or a whole pasted Drive folder link.
+// Rows of the meal plan sheet as [{ day, meal }]; rows that aren't a weekday (e.g. headings) are skipped.
+function meals_() {
+  const s = String(MEALS_SHEET || '').trim();
+  if (!s) return [];
+  const m = /\/d\/([\w-]+)/.exec(s);
+  const sheet = SpreadsheetApp.openById(m ? m[1] : s).getSheets()[0];
+  const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  return sheet.getDataRange().getDisplayValues()
+    .filter(function (r) { return days.indexOf(String(r[0]).trim().toLowerCase().slice(0, 3)) >= 0; })
+    .map(function (r) { return { day: String(r[0]).trim(), meal: String(r[1] || '').trim() }; });
+}
+
 function folderId_() {
   const s = String(PHOTO_FOLDER_ID || '').trim();
   const m = /folders\/([\w-]+)/.exec(s) || /[?&]id=([\w-]+)/.exec(s);
@@ -227,6 +244,7 @@ function test() {
   const events = events_();
   Logger.log('Events found: ' + events.length);
   countdowns_().forEach(function (c) { Logger.log('  Countdown: ' + c.date + '  ' + c.title); });
+  meals_().forEach(function (r) { Logger.log('  Meal: ' + r.day + ' — ' + (r.meal || '(nothing)')); });
   events.slice(0, 5).forEach(function (e) { Logger.log('  ' + e.start + '  ' + e.title); });
 
   if (!folderId_()) {

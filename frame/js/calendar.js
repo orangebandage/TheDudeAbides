@@ -355,6 +355,7 @@
       if (seq !== loadSeq) return;            // a newer request (e.g. month change) won
       lastEvents = (d.events || []).map(parse);
       if (d.countdowns && F.setCountdowns) F.setCountdowns(d.countdowns);
+      if (d.meals && F.setMeals) F.setMeals(d.meals);
       F.el('cal-note').innerHTML = '';
       render();
     }).catch(function (err) {
