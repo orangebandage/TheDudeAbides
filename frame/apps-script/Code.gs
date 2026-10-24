@@ -52,13 +52,23 @@ function doGet(e) {
     const out = {};
     if (p.what !== 'photos') {
       out.events = events_(p.start, p.end);
-      out.countdowns = countdowns_();
-      out.meals = meals_();
+      // Extras never take the calendar down with them; their problem is reported instead.
+      out.countdowns = safe_(countdowns_, out, 'countdownsError');
+      out.meals = safe_(meals_, out, 'mealsError');
     }
     if (p.what !== 'events') out.photos = photos_();
     return json_(out);
   } catch (err) {
     return json_({ error: String(err && err.message || err) });
+  }
+}
+
+function safe_(fn, out, errorKey) {
+  try {
+    return fn();
+  } catch (err) {
+    out[errorKey] = String(err && err.message || err);
+    return [];
   }
 }
 
@@ -244,7 +254,14 @@ function test() {
   const events = events_();
   Logger.log('Events found: ' + events.length);
   countdowns_().forEach(function (c) { Logger.log('  Countdown: ' + c.date + '  ' + c.title); });
-  meals_().forEach(function (r) { Logger.log('  Meal: ' + r.day + ' — ' + (r.meal || '(nothing)')); });
+  try {
+    const meals = meals_();
+    if (!MEALS_SHEET) Logger.log('Meals: MEALS_SHEET is empty.');
+    else if (!meals.length) Logger.log('Meals: the sheet opened, but no rows start with a day name (Sunday, Monday…) in column A of the first tab.');
+    meals.forEach(function (r) { Logger.log('  Meal: ' + r.day + ' — ' + (r.meal || '(nothing)')); });
+  } catch (err) {
+    Logger.log('Meals: could not read the sheet — ' + err.message);
+  }
   events.slice(0, 5).forEach(function (e) { Logger.log('  ' + e.start + '  ' + e.title); });
 
   if (!folderId_()) {
