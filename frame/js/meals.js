@@ -37,9 +37,8 @@
       var meal = byDay[d] || '';
       var t = meal ? iconFor(meal) : null;
       html += '<div class="ml-row' + (d === today ? ' today' : '') + (meal ? '' : ' empty') + '">'
-        + '<span class="ml-icon">' + (t ? F.esc(t.icon) : '') + '</span>'
         + '<span class="ml-day">' + (d === today ? 'Today' : DAYS[d]) + '</span>'
-        + '<span class="ml-meal">' + (t ? F.esc(t.text) : '—') + '</span>'
+        + '<span class="ml-meal">' + (t ? '<span class="ml-icon">' + F.esc(t.icon) + '</span>' + F.esc(t.text) : '—') + '</span>'
         + '</div>';
     }
     box.innerHTML = html;
