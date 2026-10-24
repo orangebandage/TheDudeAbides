@@ -88,7 +88,7 @@ window.FRAME_CONFIG = {
   laundry: {
     enabled: true,
     people: [
-      { name: 'Emily', color: '#f6bf26' },
+      { name: 'Emily', color: '#ff1493' },
       { name: 'Elliott', color: '#5ab0ff' },
     ],
   },
