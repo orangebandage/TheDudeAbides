@@ -78,7 +78,11 @@ body.cal-agenda #app {
   justify-content: space-between;
   gap: 1.3rem;
   padding: 0 0.4rem;
+  min-width: 0;
+  overflow: hidden;   /* never push the rest of the screen sideways */
 }
+#topbar > * { flex-shrink: 0; }
+#topbar > #weather { flex-shrink: 1; min-width: 0; }
 #photos { grid-area: photo; }
 #calendar { grid-area: cal; }
 #hockey { grid-area: hockey; }
@@ -403,8 +407,24 @@ body.cal-month #calendar-body { overflow: hidden; display: flex; }
   .wx-days { gap: 0.6rem; }
 }
 
-@media (max-width: 700px) and (orientation: landscape) {
+/* Narrower landscape screens (smaller iPads, Split View): tighten the top bar so it fits. */
+@media (max-width: 1400px) and (orientation: landscape) {
+  #topbar { gap: 1rem; }
+  #time { font-size: 3.6rem; }
+  .wc-time { font-size: 1.35rem; }
+  #world-clocks { gap: 1rem; padding-left: 1rem; }
+  #laundry { padding-left: 1rem; }
+  .wx-icon { font-size: 2.8rem; }
+  .wx-temp { font-size: 2.2rem; }
+  .wx-days .wx-day:nth-child(4) { display: none; }
+}
+@media (max-width: 1050px) and (orientation: landscape) {
+  .wx-days .wx-day:nth-child(3) { display: none; }
+  .wx-meta { display: none; }
+}
+@media (max-width: 900px) and (orientation: landscape) {
   .wx-days { display: none; }
+  #world-clocks .wc:nth-child(2) { display: none; }
 }
 
 /* ---------- countdown ---------- */
