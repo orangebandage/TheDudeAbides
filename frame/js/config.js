@@ -89,7 +89,7 @@ window.FRAME_CONFIG = {
     enabled: true,
     people: [
       { name: 'Emily', color: '#b026ff' },
-      { name: 'Elliott', color: '#5ab0ff' },
+      { name: 'Elliott', color: '#9ca3af' },
     ],
   },
 
